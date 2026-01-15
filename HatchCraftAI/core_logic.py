@@ -83,8 +83,9 @@ class PatternGenerator:
                 # Para .pat, el shift define la familia de líneas paralelas.
                 # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # Cálculo perpendicular con redondeo a 3 decimales (balance precisión/estabilidad)
-                s_x = round(-self.size * math.sin(rad), 3)
+                # SHIFT PERPENDICULAR (sin negativo para evitar valores negativos)
+                # Usando sin θ (en vez de -sin θ) para minimizar negativos
+                s_x = round(self.size * math.sin(rad), 3)
                 s_y = round(self.size * math.cos(rad), 3)
                 
                 # Redondear coordenadas también
