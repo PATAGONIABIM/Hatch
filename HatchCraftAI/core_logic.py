@@ -14,7 +14,7 @@ class PatternGenerator:
         if img is None: return {"error": "Error al leer imagen"}
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (3,3), 0)
+        blur = cv2.GaussianBlur(gray, (3, 3), 0)
         binary = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
         white_pix = np.sum(binary == 255)
@@ -35,15 +35,14 @@ class PatternGenerator:
         contours, _ = cv2.findContours(final_bin, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
         h, w = gray.shape
+        # Escala: mapeamos los píxeles al tamaño de celda (grid_size) definido por el usuario
         scale_x = self.size / w
         scale_y = self.size / h
         
         vec_preview = np.ones((h, w, 3), dtype=np.uint8) * 255
         
-        # --- ENCABEZADO ESTRICTO PARA REVIT ---
-        # No debe haber líneas en blanco arriba ni espacios antes del punto y coma.
-        pat_content = f"*HatchCraft_Modelo, {self.units}\n"
-        pat_content += ";%TYPE=MODEL\n"
+        # Formato estricto para que Revit reconozca el tipo "Modelo"
+        pat_content = f"*HatchCraft_Revit_{self.units}, Generado en CM\n;%TYPE=MODEL\n"
         
         count = 0
         for cnt in contours:
@@ -58,6 +57,7 @@ class PatternGenerator:
                 p1 = pts[i]
                 p2 = pts[(i + 1) % len(pts)]
                 
+                # Transformar a coordenadas del mundo real (Centímetros)
                 x1, y1 = p1[0] * scale_x, (h - p1[1]) * scale_y
                 x2, y2 = p2[0] * scale_x, (h - p2[1]) * scale_y
                 
@@ -68,12 +68,28 @@ class PatternGenerator:
                 angle = math.degrees(math.atan2(dy, dx))
                 if angle < 0: angle += 360
                 
-                # --- REPETICIÓN COMPATIBLE CON REVIT ---
-                # Para un patrón 'Modelo', la repetición más limpia es forzar que la línea 
-                # no se repita sobre sí misma (dash largo) y que el salto sea el tamaño de celda.
-                # Formato: angulo, x-orig, y-orig, shift-x, shift-y, dash, space
-                # Shift-x = 0 (no se desplaza lateralmente), Shift-y = size (salta a la siguiente celda)
-                line = f"{angle:.4f}, {x1:.5f},{y1:.5f}, 0, {self.size:.5f}, {dist:.5f}, -{self.size*10:.1f}\n"
+                # --- MATEMÁTICA DE REPETICIÓN SIN COSTURAS (GRID TILING) ---
+                # Para que un patrón se repita en una rejilla perfecta de tamaño S:
+                # 1. El salto perpendicular (dy_pat) debe ser S * cos(ángulo).
+                # 2. El salto longitudinal (dx_pat) debe ser S * sin(ángulo).
+                # 3. La línea debe repetirse a sí misma cada S unidades.
+                
+                angle_rad = math.radians(angle)
+                
+                # Proyección del vector de repetición (0, S) sobre el sistema local de la línea
+                dx_pat = self.size * math.sin(angle_rad)
+                dy_pat = self.size * math.cos(angle_rad)
+                
+                # Para evitar que las líneas se pierdan, forzamos que el desplazamiento sea siempre el tamaño de celda.
+                # Si la línea es horizontal (0), dx=0, dy=S. 
+                # Si la línea es vertical (90), dx=S, dy=0 (Revit aceptará dy=0 si el dash está bien configurado).
+                
+                # Calculamos el 'espacio' para que la línea se repita cada 'S' unidades a lo largo de su eje.
+                # Esto es lo que evita que el dibujo se 'pierda' hacia los lados.
+                repetition_period = self.size / max(abs(math.cos(angle_rad)), abs(math.sin(angle_rad)))
+                space = -(repetition_period - dist)
+                
+                line = f"{angle:.4f}, {x1:.5f},{y1:.5f}, {dx_pat:.5f},{dy_pat:.5f}, {dist:.5f}, {space:.5f}\n"
                 pat_content += line
                 count += 1
 
@@ -81,5 +97,5 @@ class PatternGenerator:
             "processed_img": final_bin,
             "vector_img": vec_preview,
             "pat_content": pat_content,
-            "stats": f"Geometría: {count} líneas creadas."
+            "stats": f"Resultado: {count} líneas para Revit ({self.units})."
         }
