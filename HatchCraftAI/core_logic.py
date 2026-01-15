@@ -37,18 +37,15 @@ class PatternGenerator:
 
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
-        scale = self.size / side
-        vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
-        
-        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V4 - Strict CRLF) ---
-        # Revit en Windows a veces necesita \r\n explícito en todo el archivo.
-        # "unit" no está definido en self, pero asumimos MM por defecto.
+        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V5 - Spaces & ASCII) ---
+        # 1. Add spaces after commas: "angle, x, y..." (Revit parser might need token separation)
+        # 2. Remove ;%UNITS (Standard .pat doesn't strictly always use it, maybe custom/model mismatch)
+        # 3. Simple Name
         
         # Header Lines
         lines = [
-            "*HatchCraft_Seamless, Generated Pattern",
-            ";%TYPE=MODEL",
-            ";%UNITS=MM"  # Ayuda a Revit a saber la escala
+            "*HatchCraftModel, Generated Pattern",
+            ";%TYPE=MODEL"
         ]
         
         count = 0
@@ -56,6 +53,8 @@ class PatternGenerator:
             if cv2.arcLength(cnt, True) < 5: continue
             approx = cv2.approxPolyDP(cnt, epsilon_factor * cv2.arcLength(cnt, True), True)
             pts = approx[:, 0, :]
+            
+            # Preview Drawing
             cv2.polylines(vec_preview, [pts], True, (0,0,0), 1, cv2.LINE_AA)
 
             for i in range(len(pts)):
@@ -73,19 +72,18 @@ class PatternGenerator:
                 if ang < 0: ang += 360
                 rad = math.radians(ang)
 
-                # Shift
+                # Shift (User Logic Preservation with safe checks)
                 s_x = self.size * math.sin(rad)
                 s_y = self.size * math.cos(rad)
                 
-                # Standard line definition
-                line = f"{ang:.5f},{x1:.5f},{y1:.5f},{s_x:.5f},{s_y:.5f},{L:.5f},-2000.0"
+                # Standard line definition WITH SPACES
+                # "angle, x, y, shift_x, shift_y, dash, space"
+                line = f"{ang:.5f}, {x1:.5f}, {y1:.5f}, {s_x:.5f}, {s_y:.5f}, {L:.5f}, -2000.0"
                 lines.append(line)
                 count += 1
         
         # JOIN EVERYTHING WITH CRLF (\r\n)
-        # Esto es lo más standard para archivos de texto Windows.
         full_content = "\r\n".join(lines)
-        # Final newline
         full_content += "\r\n"
         
         return {
