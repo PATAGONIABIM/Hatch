@@ -73,25 +73,27 @@ class PatternGenerator:
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
+                rad = math.radians(ang)
 
-                # SOLUCIÓN: Usar un shift genérico simple que SIEMPRE funcione
-                # Basado en el test exitoso, usamos valores pequeños y positivos
-                # La familia de líneas se repite "hacia arriba y hacia la derecha"
-                # independiente del ángulo de la línea individual.
-                # Esto no es perfecto matemáticamente pero Revit lo acepta.
+                # SHIFT PERPENDICULAR CORRECTO
+                # Vector perpendicular (rotación +90°):
+                # Si línea va en dirección (cos θ, sin θ)
+                # Perpendicular es (-sin θ, cos θ)
+                # 
+                # Para .pat, el shift define la familia de líneas paralelas.
+                # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # Limitamos decimales a 2 lugares para evitar problemas de parsing
+                # Cálculo perpendicular con redondeo a 3 decimales (balance precisión/estabilidad)
+                s_x = round(-self.size * math.sin(rad), 3)
+                s_y = round(self.size * math.cos(rad), 3)
+                
+                # Redondear coordenadas también
                 ang = round(ang, 2)
-                x1 = round(x1, 2)
-                y1 = round(y1, 2)
-                L = round(L, 2)
+                x1 = round(x1, 3)
+                y1 = round(y1, 3)
+                L = round(L, 3)
                 
-                # Shift simple ortogonal (como test exitoso)
-                s_x = round(self.size, 2)
-                s_y = round(self.size, 2)
-                
-                # Standard line definition WITH SPACES
-                # "angle, x, y, shift_x, shift_y, dash, space"
+                # Standard line definition
                 line = f"{ang}, {x1}, {y1}, {s_x}, {s_y}, {L}, -1"
                 lines.append(line)
                 count += 1
