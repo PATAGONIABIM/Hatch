@@ -40,17 +40,20 @@ class PatternGenerator:
         scale = self.size / side
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # --- ENCABEZADO "BULLETPROOF" PARA REVIT ---
-        # 1. Header: *Name, Description (Comma is critical)
-        # 2. Type: ;%TYPE=MODEL
-        # 3. Units: ;%UNITS=MM (Optional but good practice if we mean metric, though generic is safer)
-        # 4. Line Endings: Must be \r\n for Windows strict parsing
+        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V2) ---
+        # Simplificamos al máximo. El error "No patrones del tipo Modelo" suele ser header malformado.
+        # Usamos nombre simple sin guiones bajos complejos.
+        # Quitamos espacios extra.
+        pat_name = "HatchCraftModel"
         
-        # Unify name to generic to avoid mismatch
-        pat_name = "HatchCraft_Modelo" 
+        # header construction (using \n, Python/Streamlit handles text mode)
+        # Type=Model must be uppercase.
+        header_lines = [
+            f"*{pat_name}, HatchCraft Generated",
+            ";%TYPE=MODEL"
+        ]
         
-        pat_content = f"*{pat_name}, HatchCraft Generated Pattern\r\n"
-        pat_content += ";%TYPE=MODEL\r\n"
+        pat_lines_str = []
         
         count = 0
         for cnt in contours:
@@ -78,13 +81,17 @@ class PatternGenerator:
                 s_x = self.size * math.sin(rad)
                 s_y = self.size * math.cos(rad)
                 
-                # Format line with CRLF
-                line = f"{ang:.5f}, {x1:.5f},{y1:.5f}, {s_x:.5f},{s_y:.5f}, {L:.5f}, -1000000.0\r\n"
-                pat_content += line
+                # Standard line definition
+                # "angle, x, y, shift_x, shift_y, dash, space"
+                line = f"{ang:.5f},{x1:.5f},{y1:.5f},{s_x:.5f},{s_y:.5f},{L:.5f},-2000.0"
+                pat_lines_str.append(line)
                 count += 1
-
-        # Final Empty Line
-        pat_content += "\r\n"
+        
+        # Join with standard newline. Streamlit download button handles OS EOL usually, 
+        # but pure \n is safest for cross-platform UTF-8 text.
+        full_content = "\n".join(header_lines + pat_lines_str)
+        # Ensure final newline
+        full_content += "\n"
 
         return {
             "processed_img": binary,
