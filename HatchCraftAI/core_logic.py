@@ -73,11 +73,12 @@ class PatternGenerator:
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
-                rad = math.radians(ang)
 
-                # Shift (User Logic Preservation with safe checks)
-                s_x = self.size * math.sin(rad)
-                s_y = self.size * math.cos(rad)
+                # SIMPLIFICACIÓN: Shift ortogonal simple como en test exitoso
+                # En lugar de calcular proyecciones complejas, usamos el tile size directo
+                # shift_x = 0 (repite verticalmente), shift_y = size (offset cada fila)
+                s_x = 0
+                s_y = self.size
                 
                 # Standard line definition WITH SPACES
                 # "angle, x, y, shift_x, shift_y, dash, space"
