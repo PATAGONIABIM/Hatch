@@ -153,11 +153,29 @@ class PatternGenerator:
                 pat_lines.append(line_def)
                 count_segments += 1
                 
+        # --- Visualization of Scale (Ruler) ---
+        # Draw a "1 Unit" red line at the bottom
+        # map 1 unit to pixels
+        if pixel_scale_x > 0:
+            px_per_unit = 1.0 / pixel_scale_x
+            
+            # Start position (bottom left padding)
+            ruler_y = int(h_img * 0.95)
+            ruler_x_start = int(w_img * 0.05)
+            ruler_x_end = int(ruler_x_start + px_per_unit)
+            
+            # Clamp
+            if ruler_x_end > w_img: ruler_x_end = w_img
+            
+            # Draw line
+            cv2.line(vector_canvas, (ruler_x_start, ruler_y), (ruler_x_end, ruler_y), (0, 0, 255), 4) # Red line (BGR)
+            cv2.putText(vector_canvas, "1 Unit", (ruler_x_start, ruler_y - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 1)
+
         full_content = "\n".join(pat_header + pat_lines)
         
         return {
             "debug_closed_img": debug_closed, # The "Connected" binary image
             "vector_img": vector_canvas,      # The Result
             "pat_content": full_content,
-            "stats": f"Detected {len(contours)} shapes, {count_segments} segments."
+            "stats": f"Detected {len(contours)} shapes, {count_segments} segments.\nPhysical Size: {physical_width:.2f}x{physical_height:.2f} units."
         }
