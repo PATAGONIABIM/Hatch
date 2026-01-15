@@ -73,12 +73,23 @@ class PatternGenerator:
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
+                rad = math.radians(ang)
 
-                # SIMPLIFICACIÓN: Shift ortogonal simple como en test exitoso
-                # En lugar de calcular proyecciones complejas, usamos el tile size directo
-                # shift_x = 0 (repite verticalmente), shift_y = size (offset cada fila)
-                s_x = 0
-                s_y = self.size
+                # SHIFT PERPENDICULAR CORRECTO para Tiling 2D
+                # Para que el patrón se repita en un grid cuadrado, cada línea necesita
+                # un shift en su dirección PERPENDICULAR con magnitud = tamaño del tile.
+                # 
+                # Perpendicular a ángulo θ (rotación +90°):
+                # shift_x = -size * sin(θ)
+                # shift_y = size * cos(θ)
+                #
+                # Esto hace que:
+                # - Líneas horizontales (0°) repitan hacia arriba: (0, size) ✓
+                # - Líneas verticales (90°) repitan hacia izquierda: (-size, 0)
+                # 
+                # Para Revit, parece necesitar el signo opuesto en X:
+                s_x = self.size * math.sin(rad)
+                s_y = self.size * math.cos(rad)
                 
                 # Standard line definition WITH SPACES
                 # "angle, x, y, shift_x, shift_y, dash, space"
