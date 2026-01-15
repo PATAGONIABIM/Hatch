@@ -4,20 +4,24 @@ import math
 from skimage.morphology import skeletonize
 
 class PatternGenerator:
-    def __init__(self, size=100.0, units="Centímetros"):
+    def __init__(self, size=100.0):
         self.size = float(size)
-        self.units = units
 
-    def process_image(self, image_file, epsilon_factor=0.008, closing_size=3, mode="Auto-Detectar", use_skeleton=True):
+    def process_image(self, image_file, epsilon_factor=0.005, closing_size=2, mode="Auto-Detectar", use_skeleton=True):
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         if img is None: return {"error": "Error de imagen"}
 
+        # --- AUTO-CROP: Forzar cuadrado perfecto para evitar traslapes ---
+        h_orig, w_orig = img.shape[:2]
+        side = min(h_orig, w_orig)
+        start_x = (w_orig - side) // 2
+        start_y = (h_orig - side) // 2
+        img = img[start_y:start_y+side, start_x:start_x+side]
+        
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (3,3), 0)
-        binary = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
+        binary = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
-        # Inversión inteligente
         if (mode == "Auto-Detectar" and np.sum(binary==255) > binary.size/2) or mode == "Líneas Negras":
             binary = cv2.bitwise_not(binary)
 
@@ -29,11 +33,11 @@ class PatternGenerator:
 
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
-        h, w = gray.shape
-        sx, sy = self.size / w, self.size / h
-        vec_preview = np.ones((h, w, 3), dtype=np.uint8) * 255
+        # Escala absoluta
+        scale = self.size / side
+        vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        pat_content = f"*HatchCraft_Seamless, {self.units}\n;%TYPE=MODEL\n"
+        pat_content = f"*HatchCraft_V33_Seamless, Modelo\n;%TYPE=MODEL\n"
         count = 0
 
         for cnt in contours:
@@ -44,8 +48,10 @@ class PatternGenerator:
 
             for i in range(len(pts)):
                 p1, p2 = pts[i], pts[(i + 1) % len(pts)]
-                x1, y1 = p1[0] * sx, (h - p1[1]) * sy
-                x2, y2 = p2[0] * sx, (h - p2[1]) * sy
+                
+                # Coordenadas normalizadas al cuadrado de repetición
+                x1, y1 = p1[0] * scale, (side - p1[1]) * scale
+                x2, y2 = p2[0] * scale, (side - p2[1]) * scale
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
@@ -55,22 +61,24 @@ class PatternGenerator:
                 if ang < 0: ang += 360
                 rad = math.radians(ang)
 
-                # --- LÓGICA DE TILING POR CUADRANTE ---
-                # Si la línea es más horizontal, repetimos verticalmente (Vector 0, S)
-                if abs(math.cos(rad)) >= abs(math.sin(rad)):
-                    dx_p = self.size * math.sin(rad)
-                    dy_p = self.size * math.cos(rad)
-                    period = self.size / abs(math.cos(rad))
-                # Si es más vertical, repetimos horizontalmente (Vector S, 0)
-                else:
-                    dx_p = self.size * math.cos(rad)
-                    dy_p = -self.size * math.sin(rad)
-                    period = self.size / abs(math.sin(rad))
-
-                # Calculamos el espacio para que el segmento no se pierda en su propio eje
+                # --- MATEMÁTICA DE "STAMP" (SEAMLESS TILING) ---
+                # Proyectamos el desplazamiento de repetición del cuadrado (S, S) sobre la línea.
+                # Revit necesita saber cuánto saltar longitudinalmente (dx_p) y perpendicularmente (dy_p).
+                
+                cos_a, sin_a = math.cos(rad), math.sin(rad)
+                
+                # Desplazamiento para repetir la fila (Salto vertical en el tile)
+                dx_p = self.size * sin_a
+                dy_p = self.size * cos_a
+                
+                # Cálculo del Periodo: cuánto mide el tile proyectado sobre la dirección de la línea
+                # Usamos max(abs) para evitar divisiones por cero en 0/90 grados.
+                period = self.size / max(abs(cos_a), abs(sin_a))
+                
+                # Espacio negativo para que no se repita en su propia línea antes de tiempo
                 space = -(period - L)
                 
-                line = f"{ang:.4f}, {x1:.5f},{y1:.5f}, {dx_p:.5f},{dy_p:.5f}, {L:.5f}, {space:.5f}\n"
+                line = f"{ang:.5f}, {x1:.5f},{y1:.5f}, {dx_p:.5f},{dy_p:.5f}, {L:.5f}, {space:.5f}\n"
                 pat_content += line
                 count += 1
 
@@ -78,5 +86,5 @@ class PatternGenerator:
             "processed_img": binary,
             "vector_img": vec_preview,
             "pat_content": pat_content,
-            "stats": f"Muro completado: {count} segmentos vectorizados."
+            "stats": f"Líneas listas: {count}. Tamaño Tile: {self.size} unidades."
         }
