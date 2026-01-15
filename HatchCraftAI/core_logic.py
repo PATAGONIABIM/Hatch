@@ -96,6 +96,6 @@ class PatternGenerator:
         return {
             "processed_img": binary,
             "vector_img": vec_preview,
-            "pat_content": pat_content,
+            "pat_content": full_content,
             "stats": f"Patrón generado: {count} segmentos. Tipo: MODELO."
         }
