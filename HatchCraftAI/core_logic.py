@@ -37,6 +37,9 @@ class PatternGenerator:
 
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
+        scale = self.size / side
+        vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
+        
         # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V5 - Spaces & ASCII) ---
         # 1. Add spaces after commas: "angle, x, y..." (Revit parser might need token separation)
         # 2. Remove ;%UNITS (Standard .pat doesn't strictly always use it, maybe custom/model mismatch)
