@@ -40,18 +40,12 @@ class PatternGenerator:
         scale = self.size / side
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V2) ---
-        # Simplificamos al máximo. El error "No patrones del tipo Modelo" suele ser header malformado.
-        # Usamos nombre simple sin guiones bajos complejos.
-        # Quitamos espacios extra.
-        pat_name = "HatchCraftModel"
+        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V3 - User Request) ---
+        # Volvemos al formato que el usuario confirmó que funcionaba.
+        # "pat_content = f"*HatchCraft_Seamless, {self.units}\n;%TYPE=MODEL\n""
         
-        # header construction (using \n, Python/Streamlit handles text mode)
-        # Type=Model must be uppercase.
-        header_lines = [
-            f"*{pat_name}, HatchCraft Generated",
-            ";%TYPE=MODEL"
-        ]
+        # Asumimos que self.units era una descripción o unidad. Usamos "Generate" por seguridad.
+        header = "*HatchCraft_Seamless, Generated\n;%TYPE=MODEL\n"
         
         pat_lines_str = []
         
@@ -87,12 +81,10 @@ class PatternGenerator:
                 pat_lines_str.append(line)
                 count += 1
         
-        # Join with standard newline. Streamlit download button handles OS EOL usually, 
-        # but pure \n is safest for cross-platform UTF-8 text.
-        full_content = "\n".join(header_lines + pat_lines_str)
-        # Ensure final newline
-        full_content += "\n"
-
+        # Join with standard newline.
+        # Header already has newlines.
+        full_content = header + "\n".join(pat_lines_str) + "\n"
+        
         return {
             "processed_img": binary,
             "vector_img": vec_preview,
