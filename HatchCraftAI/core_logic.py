@@ -37,17 +37,16 @@ class PatternGenerator:
 
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
-        scale = self.size / side
-        vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
+        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V4 - Strict CRLF) ---
+        # Revit en Windows a veces necesita \r\n explícito en todo el archivo.
+        # "unit" no está definido en self, pero asumimos MM por defecto.
         
-        # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V3 - User Request) ---
-        # Volvemos al formato que el usuario confirmó que funcionaba.
-        # "pat_content = f"*HatchCraft_Seamless, {self.units}\n;%TYPE=MODEL\n""
-        
-        # Asumimos que self.units era una descripción o unidad. Usamos "Generate" por seguridad.
-        header = "*HatchCraft_Seamless, Generated\n;%TYPE=MODEL\n"
-        
-        pat_lines_str = []
+        # Header Lines
+        lines = [
+            "*HatchCraft_Seamless, Generated Pattern",
+            ";%TYPE=MODEL",
+            ";%UNITS=MM"  # Ayuda a Revit a saber la escala
+        ]
         
         count = 0
         for cnt in contours:
@@ -76,14 +75,15 @@ class PatternGenerator:
                 s_y = self.size * math.cos(rad)
                 
                 # Standard line definition
-                # "angle, x, y, shift_x, shift_y, dash, space"
                 line = f"{ang:.5f},{x1:.5f},{y1:.5f},{s_x:.5f},{s_y:.5f},{L:.5f},-2000.0"
-                pat_lines_str.append(line)
+                lines.append(line)
                 count += 1
         
-        # Join with standard newline.
-        # Header already has newlines.
-        full_content = header + "\n".join(pat_lines_str) + "\n"
+        # JOIN EVERYTHING WITH CRLF (\r\n)
+        # Esto es lo más standard para archivos de texto Windows.
+        full_content = "\r\n".join(lines)
+        # Final newline
+        full_content += "\r\n"
         
         return {
             "processed_img": binary,
