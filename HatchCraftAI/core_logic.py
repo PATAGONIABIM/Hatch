@@ -41,9 +41,16 @@ class PatternGenerator:
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
         # --- ENCABEZADO "BULLETPROOF" PARA REVIT ---
-        # El nombre NO DEBE tener espacios. No debe haber líneas vacías arriba.
-        pat_content = "*HatchCraft_Modelo\n"
-        pat_content += ";%TYPE=MODEL\n"
+        # 1. Header: *Name, Description (Comma is critical)
+        # 2. Type: ;%TYPE=MODEL
+        # 3. Units: ;%UNITS=MM (Optional but good practice if we mean metric, though generic is safer)
+        # 4. Line Endings: Must be \r\n for Windows strict parsing
+        
+        # Unify name to generic to avoid mismatch
+        pat_name = "HatchCraft_Modelo" 
+        
+        pat_content = f"*{pat_name}, HatchCraft Generated Pattern\r\n"
+        pat_content += ";%TYPE=MODEL\r\n"
         
         count = 0
         for cnt in contours:
@@ -55,7 +62,7 @@ class PatternGenerator:
             for i in range(len(pts)):
                 p1, p2 = pts[i], pts[(i + 1) % len(pts)]
                 
-                # Coordenadas relativas al cuadrado de repetición
+                # Coordenadas relativas
                 x1, y1 = p1[0] * scale, (side - p1[1]) * scale
                 x2, y2 = p2[0] * scale, (side - p2[1]) * scale
                 
@@ -67,21 +74,17 @@ class PatternGenerator:
                 if ang < 0: ang += 360
                 rad = math.radians(ang)
 
-                # --- MATEMÁTICA DE TILING ESTRICTO ---
-                # Usamos el desplazamiento perpendicular (Shift) basado en el tamaño S.
-                # Para evitar traslapes, forzamos que cada segmento se dibuje una sola vez por tile.
-                # Shift-x = S * sin(ang), Shift-y = S * cos(ang)
+                # Shift
                 s_x = self.size * math.sin(rad)
                 s_y = self.size * math.cos(rad)
                 
-                # Espacio negativo muy grande para que no se repita en su propia línea
-                # Esto obliga a Revit a usar solo el salto de tileado S.
-                line = f"{ang:.5f}, {x1:.5f},{y1:.5f}, {s_x:.5f},{s_y:.5f}, {L:.5f}, -1000000.0\n"
+                # Format line with CRLF
+                line = f"{ang:.5f}, {x1:.5f},{y1:.5f}, {s_x:.5f},{s_y:.5f}, {L:.5f}, -1000000.0\r\n"
                 pat_content += line
                 count += 1
 
-        # Revit necesita una línea vacía al final del archivo
-        pat_content += "\n"
+        # Final Empty Line
+        pat_content += "\r\n"
 
         return {
             "processed_img": binary,
