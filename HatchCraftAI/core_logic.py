@@ -37,6 +37,9 @@ class PatternGenerator:
 
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         
+        scale = self.size / side
+        vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
+        
         # --- ENCABEZADO "BULLETPROOF" PARA REVIT (V4 - Strict CRLF) ---
         # Revit en Windows a veces necesita \r\n explícito en todo el archivo.
         # "unit" no está definido en self, pero asumimos MM por defecto.
