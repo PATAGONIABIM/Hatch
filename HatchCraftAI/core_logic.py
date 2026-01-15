@@ -14,8 +14,7 @@ class PatternGenerator:
         if img is None: return {"error": "Error al leer imagen"}
 
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(gray, (3, 3), 0)
-        
+        blur = cv2.GaussianBlur(gray, (3,3), 0)
         binary = cv2.adaptiveThreshold(blur, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2)
 
         white_pix = np.sum(binary == 255)
@@ -41,13 +40,14 @@ class PatternGenerator:
         
         vec_preview = np.ones((h, w, 3), dtype=np.uint8) * 255
         
-        # Cabecera de Revit
-        pat_lines = [f"*HatchCraft_Revit, Unidades: {self.units}", ";%TYPE=MODEL"]
+        # --- ENCABEZADO ESTRICTO PARA REVIT ---
+        # No debe haber líneas en blanco arriba ni espacios antes del punto y coma.
+        pat_content = f"*HatchCraft_Modelo, {self.units}\n"
+        pat_content += ";%TYPE=MODEL\n"
+        
         count = 0
-
         for cnt in contours:
             if cv2.arcLength(cnt, True) < 5: continue
-            
             epsilon = epsilon_factor * cv2.arcLength(cnt, True)
             approx = cv2.approxPolyDP(cnt, epsilon, True)
             pts = approx[:, 0, :]
@@ -68,25 +68,18 @@ class PatternGenerator:
                 angle = math.degrees(math.atan2(dy, dx))
                 if angle < 0: angle += 360
                 
-                # --- MATEMÁTICA DE REPETICIÓN RECURRENTE (FIX PARA REVIT) ---
-                # Queremos que la línea se repita cada 'self.size' unidades en los ejes globales.
-                # En .pat, dx_pat y dy_pat son desplazamientos en el eje local de la línea.
-                angle_rad = math.radians(angle)
-                
-                # Desplazamiento para repetir el patrón verticalmente cada 'size' unidades
-                # dx = shift a lo largo de la línea, dy = shift perpendicular
-                dx_pat = self.size * math.sin(angle_rad)
-                dy_pat = self.size * math.cos(angle_rad)
-                
-                # Usamos un espacio negativo enorme (-9999) para que la línea no se repita
-                # sobre sí misma, sino que cree el segmento y "salte" a la siguiente celda.
-                line = f"{angle:.4f}, {x1:.5f},{y1:.5f}, {dx_pat:.5f},{dy_pat:.5f}, {dist:.5f}, {-9999:.1f}"
-                pat_lines.append(line)
+                # --- REPETICIÓN COMPATIBLE CON REVIT ---
+                # Para un patrón 'Modelo', la repetición más limpia es forzar que la línea 
+                # no se repita sobre sí misma (dash largo) y que el salto sea el tamaño de celda.
+                # Formato: angulo, x-orig, y-orig, shift-x, shift-y, dash, space
+                # Shift-x = 0 (no se desplaza lateralmente), Shift-y = size (salta a la siguiente celda)
+                line = f"{angle:.4f}, {x1:.5f},{y1:.5f}, 0, {self.size:.5f}, {dist:.5f}, -{self.size*10:.1f}\n"
+                pat_content += line
                 count += 1
 
         return {
             "processed_img": final_bin,
             "vector_img": vec_preview,
-            "pat_content": "\n".join(pat_lines),
-            "stats": f"Geometría: {count} segmentos. Repetición: {self.size} {self.units}."
+            "pat_content": pat_content,
+            "stats": f"Geometría: {count} líneas creadas."
         }
