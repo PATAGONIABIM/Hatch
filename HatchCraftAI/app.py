@@ -1,64 +1,49 @@
 
 import streamlit as st
-import numpy as np
 import cv2
+import numpy as np
 from core_logic import PatternGenerator
 
-st.set_page_config(page_title="HatchCraft AI", layout="wide")
+st.set_page_config(page_title="HatchCraft Clean-Line", layout="wide")
 
-st.title("HatchCraft AI 🏗️")
-st.markdown("### Generador de Patrones .PAT para Revit desde Imágenes")
+st.title("HatchCraft: Clean-Line Vector Generator 📐")
+st.markdown("""
+**Transforma bocetos a mano en patrones técnicos para Revit (.pat).**
+Este algoritmo usa *Skeletonization* para extraer el eje central de las líneas.
+""")
 
-# Sidebar for controls
-st.sidebar.header("Configuración")
-grid_size = st.sidebar.number_input("Tamaño de Módulo (Unidades)", min_value=0.1, value=1.0, step=0.1)
-epsilon = st.sidebar.slider("Suavizado (Simplificación)", 0.001, 0.050, 0.005, format="%.3f")
+col_conf, col_prev = st.columns([1, 2])
 
-uploaded_file = st.file_uploader("Sube tu imagen (PNG/JPG) con el patrón (negro sobre blanco funciona mejor)", type=["png", "jpg", "jpeg"])
+with col_conf:
+    st.subheader("Configuración")
+    uploaded_file = st.file_uploader("1. Sube Imagen (PNG/JPG)", type=["png", "jpg"])
+    
+    st.markdown("---")
+    grid_base = st.number_input("Ancho Base Módulo (m)", 1.0, 100.0, 10.0)
+    scale = st.slider("Escala Patrón", 0.1, 5.0, 1.0, 0.1, help="Multiplica el tamaño final")
+    epsilon = st.slider("Simplificación (Epsilon)", 0.001, 0.05, 0.005, format="%.4f", help="Valores altos = Líneas más rectas (Low Poly)")
+    
+    st.markdown("---")
+    st.info("El algoritmo 'Skeletonize' reduce trazos gruesos a líneas simples.")
 
-if uploaded_file is not None:
-    # Instantiate Generator
-    generator = PatternGenerator(grid_width=grid_size, grid_height=grid_size)
+if uploaded_file:
+    gen = PatternGenerator(grid_width=grid_base, grid_height=grid_base)
     
     # Process
-    with st.spinner('Procesando imagen y vectorizando...'):
-        result = generator.process_image(uploaded_file, epsilon_factor=epsilon)
+    with st.spinner("Adelgazando líneas y vectorizando..."):
+        res = gen.process_image(uploaded_file, epsilon_factor=epsilon, scale=scale)
     
-    if "error" in result:
-        st.error(result["error"])
+    if "error" in res:
+        st.error(res["error"])
     else:
-        # Layout: Split columns for Preview and Code
-        col1, col2 = st.columns(2)
-        
-        with col1:
-            st.subheader("Previsualización de Vectores")
-            st.image(result["preview_img"], caption="Vectores Detectados", use_column_width=True)
-            st.info(result["stats"])
+        with col_prev:
+            st.subheader("Previsualización Vectorial")
+            st.image(res["preview_img"], caption="Resultado (Vectores Negros)", use_column_width=True)
             
-            # Tiling Preview (Simulated)
-            st.markdown("#### Simulación de Repetición (3x3)")
-            # Create a simple tile mosaic from the preview image for visual check
-            tile = result["preview_img"]
-            # Resize just for display performance if needed, but 3x3 is fine
-            # h, w = tile.shape[:2]
-            # mosaic = np.tile(tile, (3, 3, 1)) # This works if tile is numpy array
+            st.success(res["stats"])
             
-            # OpenCV tile
-            row1 = np.hstack([tile, tile, tile])
-            mosaic = np.vstack([row1, row1, row1])
-            st.image(mosaic, caption="Efecto Mosaico (Seamless Check)", use_column_width=True)
-
-        with col2:
-            st.subheader("Archivo .PAT Generado")
-            pat_content = result["pat_content"]
-            st.text_area("Contenido:", pat_content, height=400)
+            pat_data = res["pat_content"]
+            st.download_button("📥 Descargar .PAT", pat_data, "clean_pattern.pat", "text/plain")
             
-            st.download_button(
-                label="📥 Descargar archivo .pat",
-                data=pat_content,
-                file_name="hatchcraft_pattern.pat",
-                mime="text/plain"
-            )
-
-st.sidebar.markdown("---")
-st.sidebar.info("Tips: \n- Usa imágenes de alto contraste.\n- Para 'seamless' asegurate que el dibujo coincida en los bordes.\n- Ajusta el 'Suavizado' para reducir el número de líneas.")
+            with st.expander("Ver código generado"):
+                st.code(pat_data, language="text")
