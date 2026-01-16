@@ -88,11 +88,11 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
 
 
 class GeminiPatternGenerator:
-    """Generador de patrones usando Gemini 3 Pro Image Preview"""
+    """Generador de patrones usando Gemini 1.5 Pro"""
     
     def __init__(self, api_key):
         self.api_key = api_key
-        self.model = "gemini-3-pro-image-preview"
+        self.model = "gemini-1.5-pro"  # Modelo más potente para análisis + texto
     
     def generate_pattern(self, image_bytes):
         """Genera un patrón PAT desde una imagen usando Gemini 3 Pro"""
