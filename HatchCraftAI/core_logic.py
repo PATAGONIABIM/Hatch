@@ -7,27 +7,15 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
     """Renderiza el patrón PAT como lo vería Revit"""
     img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
     
-    lines = pat_content.strip().replace('\r\n', '\n').split('\n')
+    lines_data = pat_content.strip().replace('\r\n', '\n').split('\n')
     
-    # Encontrar el tamaño del tile del PAT
-    tile_size_pat = 1.0
-    for line in lines:
-        line = line.strip()
-        if not line or line.startswith('*') or line.startswith(';'):
-            continue
-        try:
-            parts = [p.strip() for p in line.split(',')]
-            if len(parts) >= 5:
-                dx = abs(float(parts[3]))
-                if dx > tile_size_pat:
-                    tile_size_pat = dx
-        except:
-            pass
+    # Primero: encontrar los límites del patrón
+    min_x, min_y = float('inf'), float('inf')
+    max_x, max_y = float('-inf'), float('-inf')
+    tile_size = 1.0
+    segments = []
     
-    # Escala para el preview
-    scale = preview_size / (tile_size_pat * tile_count)
-    
-    for line in lines:
+    for line in lines_data:
         line = line.strip()
         if not line or line.startswith('*') or line.startswith(';'):
             continue
@@ -47,43 +35,70 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
             if len(parts) > 5:
                 dash_pattern = [float(p) for p in parts[5:] if p.strip()]
             
+            # Calcular punto final del segmento
             ang_rad = math.radians(angle)
             dir_x = math.cos(ang_rad)
             dir_y = math.sin(ang_rad)
             
-            # Dibujar para cada tile
-            for tile_x in range(tile_count):
-                for tile_y in range(tile_count):
-                    # Posición base en unidades del PAT
-                    base_x_pat = ox + tile_x * dx
-                    base_y_pat = oy + tile_y * dy
-                    
-                    # Convertir a píxeles del preview
-                    base_x = base_x_pat * scale
-                    base_y = preview_size - base_y_pat * scale
-                    
-                    if dash_pattern:
-                        pos = 0
-                        for dash_val in dash_pattern:
-                            length = abs(dash_val) * scale
-                            if dash_val > 0:
-                                x1 = int(base_x + dir_x * pos)
-                                y1 = int(base_y - dir_y * pos)
-                                x2 = int(base_x + dir_x * (pos + length))
-                                y2 = int(base_y - dir_y * (pos + length))
-                                cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
-                            pos += length
-                    else:
-                        # Línea continua
-                        length = tile_size_pat * scale
-                        x1 = int(base_x)
-                        y1 = int(base_y)
-                        x2 = int(base_x + dir_x * length)
-                        y2 = int(base_y - dir_y * length)
-                        cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
-                        
-        except (ValueError, IndexError):
+            seg_length = abs(dash_pattern[0]) if dash_pattern else dx
+            ex = ox + dir_x * seg_length
+            ey = oy + dir_y * seg_length
+            
+            min_x = min(min_x, ox, ex)
+            min_y = min(min_y, oy, ey)
+            max_x = max(max_x, ox, ex)
+            max_y = max(max_y, oy, ey)
+            
+            tile_size = max(tile_size, dx, dy)
+            
+            segments.append({
+                'ox': ox, 'oy': oy,
+                'dx': dx, 'dy': dy,
+                'angle': angle,
+                'dash_pattern': dash_pattern
+            })
+        except:
             continue
+    
+    if not segments:
+        return img
+    
+    # Calcular escala basada en el tamaño del tile
+    pattern_size = tile_size * tile_count
+    scale = preview_size / pattern_size
+    
+    # Dibujar cada segmento para cada tile
+    for seg in segments:
+        ang_rad = math.radians(seg['angle'])
+        dir_x = math.cos(ang_rad)
+        dir_y = math.sin(ang_rad)
+        
+        for tile_x in range(tile_count):
+            for tile_y in range(tile_count):
+                # Posición del segmento en este tile
+                base_x = (seg['ox'] + tile_x * seg['dx']) * scale
+                base_y = preview_size - (seg['oy'] + tile_y * seg['dy']) * scale
+                
+                if seg['dash_pattern']:
+                    pos = 0
+                    for dash_val in seg['dash_pattern']:
+                        length = abs(dash_val) * scale
+                        if dash_val > 0:
+                            x1 = int(base_x + dir_x * pos)
+                            y1 = int(base_y - dir_y * pos)
+                            x2 = int(base_x + dir_x * (pos + length))
+                            y2 = int(base_y - dir_y * (pos + length))
+                            # Solo dibujar si está dentro del canvas
+                            cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
+                        pos += length
+                else:
+                    # Línea continua
+                    length = tile_size * scale * 0.5
+                    x1 = int(base_x)
+                    y1 = int(base_y)
+                    x2 = int(base_x + dir_x * length)
+                    y2 = int(base_y - dir_y * length)
+                    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
     
     # Grid
     tile_px = preview_size / tile_count
