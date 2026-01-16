@@ -85,10 +85,9 @@ class PatternGenerator:
                 
                 # SHIFT UNIFORME OBLIGATORIO
                 # Revit REQUIERE que TODAS las líneas tengan el mismo shift.
-                # Si usamos (1,0) para algunas y (0,1) para otras, falla.
-                # Solución: Usar siempre (0, 1) como en los tests exitosos.
+                # El shift debe ser igual al tamaño del tile para tiling correcto.
                 s_x = 0
-                s_y = 1
+                s_y = self.size  # Usar el tamaño del tile, no 1
                 
                 # Redondear coordenadas
                 ang = round(ang, 2)
