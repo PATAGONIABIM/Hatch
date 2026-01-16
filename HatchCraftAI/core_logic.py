@@ -83,26 +83,32 @@ class PatternGenerator:
                 # Para .pat, el shift define la familia de líneas paralelas.
                 # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # ESTRATEGIA INTELIGENTE DE SHIFT
-                # Revit rechaza negativos, pero abs() destruye la geometría.
-                # Solución: Usar solo el componente DOMINANTE en positivo.
-                #
-                # Para cada ángulo, calculamos perpendicular y elegimos:
-                # - Si más vertical (0-45° o 135-225° o 315-360°): shift en Y
-                # - Si más horizontal (45-135° o 225-315°): shift en X
+                # ESTRATEGIA SIMPLIFICADA: Shift basado en cuadrantes
+                # Revit SOLO acepta valores positivos en shift_x y shift_y.
+                # Usamos el ángulo de la línea para decidir shift ortogonal simple.
                 
-                # Perpendicular normalizado
-                perp_x = -math.sin(rad)
-                perp_y = math.cos(rad)
+                # Normalizar ángulo
+                ang_normalized = ang % 360
                 
-                # Determinar componente dominante
-                if abs(perp_y) > abs(perp_x):
-                    # Más vertical: shift solo en Y
+                # Decidir shift basado en el ángulo de la línea (no perpendicular)
+                # Para líneas horizontales (~0° o ~180°): repetir verticalmente
+                # Para líneas verticales (~90° o ~270°): repetir horizontalmente
+                
+                if (ang_normalized < 45) or (ang_normalized >= 315):
+                    # Línea horizontal → shift vertical
                     s_x = 0
-                    s_y = self.size if perp_y > 0 else self.size
+                    s_y = self.size
+                elif (45 <= ang_normalized < 135):
+                    # Línea vertical → shift horizontal  
+                    s_x = self.size
+                    s_y = 0
+                elif (135 <= ang_normalized < 225):
+                    # Línea horizontal invertida → shift vertical
+                    s_x = 0
+                    s_y = self.size
                 else:
-                    # Más horizontal: shift solo en X
-                    s_x = self.size if perp_x > 0 else self.size
+                    # Línea vertical invertida → shift horizontal
+                    s_x = self.size
                     s_y = 0
                 
                 # Redondear coordenadas también
