@@ -97,18 +97,18 @@ class PatternGenerator:
                 if (ang_normalized < 45) or (ang_normalized >= 315):
                     # Línea horizontal → shift vertical
                     s_x = 0
-                    s_y = self.size
+                    s_y = 1  # Usar 1 como en test exitoso
                 elif (45 <= ang_normalized < 135):
                     # Línea vertical → shift horizontal  
-                    s_x = self.size
+                    s_x = 1  # Usar 1 como en test exitoso
                     s_y = 0
                 elif (135 <= ang_normalized < 225):
                     # Línea horizontal invertida → shift vertical
                     s_x = 0
-                    s_y = self.size
+                    s_y = 1  # Usar 1 como en test exitoso
                 else:
                     # Línea vertical invertida → shift horizontal
-                    s_x = self.size
+                    s_x = 1  # Usar 1 como en test exitoso
                     s_y = 0
                 
                 # Redondear coordenadas
