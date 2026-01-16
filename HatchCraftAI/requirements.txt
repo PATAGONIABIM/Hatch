@@ -1,7 +1,5 @@
 streamlit
 opencv-python-headless
 numpy
-scikit-image
 requests
-streamlit-drawable-canvas
 Pillow
