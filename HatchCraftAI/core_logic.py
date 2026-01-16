@@ -4,20 +4,28 @@ import math
 from skimage.morphology import skeletonize
 from collections import defaultdict
 
-# Ángulos válidos según el patrón ghiaia3 que funciona en Revit
-VALID_ANGLES = [0, 45, 90, 135, 180, 225, 270, 315]
+# Ángulos válidos extendidos (incluyendo los de ghiaia3)
+VALID_ANGLES = [0, 26.565, 45, 63.435, 90, 116.565, 135, 153.435, 180, 206.565, 225, 243.435, 270, 296.565, 315, 333.435]
 
-# Shift por ángulo (del patrón ghiaia3)
-ANGLE_SHIFTS = {
-    0: (1, 1),
-    45: (0.707106781, 0.707106781),
-    90: (1, 1),
-    135: (0.707106781, 0.707106781),
-    180: (1, 1),
-    225: (0.707106781, 0.707106781),
-    270: (1, 1),
-    315: (0.707106781, 0.707106781),
-}
+# Shift por ángulo - calculado como (cos(ang), sin(ang)) para ángulos no cardinales
+def get_shift(ang):
+    if ang in [0, 180]:
+        return (1, 1)
+    elif ang in [90, 270]:
+        return (1, 1)
+    elif ang in [45, 135, 225, 315]:
+        return (0.707106781, 0.707106781)
+    elif ang in [26.565, 206.565]:
+        return (0.894427191, 0.4472135955)
+    elif ang in [63.435, 243.435]:
+        return (0.4472135955, 0.894427191)
+    elif ang in [116.565, 296.565]:
+        return (0.4472135955, 0.894427191)
+    elif ang in [153.435, 333.435]:
+        return (0.894427191, 0.4472135955)
+    else:
+        rad = math.radians(ang)
+        return (abs(math.cos(rad)), abs(math.sin(rad)))
 
 def quantize_angle(ang):
     """Redondea el ángulo al valor válido más cercano"""
@@ -60,95 +68,63 @@ class PatternGenerator:
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # Agrupar por ángulo cuantizado y posición
-        line_groups = defaultdict(list)
-        position_tolerance = 0.05  # Aumentado para reducir fragmentación
-        min_segment_length = 0.03  # Filtrar segmentos muy cortos (ruido)
+        # NUEVO ENFOQUE: Estilo ghiaia3 - cada segmento genera UNA línea con dash corto
+        pat_lines = []
+        
+        # Dash corto fijo (estilo ghiaia3: 0.05 a 0.1)
+        DASH_LENGTH = 0.07
         
         for cnt in contours:
             arc_len = cv2.arcLength(cnt, True)
-            if arc_len < 15: continue  # Aumentado para ignorar contornos pequeños
+            if arc_len < 20: continue  # Ignorar contornos muy pequeños
             
-            approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
+            # Usar epsilon más alto para menos vértices
+            approx = cv2.approxPolyDP(cnt, epsilon_factor * 2 * arc_len, True)
             pts = approx[:, 0, :]
             cv2.polylines(vec_preview, [pts], True, (0,0,0), 1, cv2.LINE_AA)
 
             for i in range(len(pts)):
                 p1, p2 = pts[i], pts[(i + 1) % len(pts)]
                 
+                # Normalizar a 0-1
                 x1, y1 = p1[0] / side, (side - p1[1]) / side
                 x2, y2 = p2[0] / side, (side - p2[1]) / side
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
-                if L < min_segment_length: continue  # Filtrar segmentos cortos
+                if L < 0.04: continue  # Ignorar segmentos muy cortos
                 
+                # Calcular ángulo real
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
                 
-                # CUANTIZAR ÁNGULO a valores válidos
+                # Cuantizar al ángulo válido más cercano
                 ang_q = quantize_angle(ang)
                 
-                # Posición perpendicular para agrupar
-                ang_rad = math.radians(ang_q)
-                perp_pos = x1 * math.sin(ang_rad) - y1 * math.cos(ang_rad)
-                perp_key = round(perp_pos / position_tolerance) * position_tolerance
+                # Obtener shift para este ángulo
+                s_x, s_y = get_shift(ang_q)
                 
-                # Posición paralela
-                para_pos = x1 * math.cos(ang_rad) + y1 * math.sin(ang_rad)
+                # Calcular el dash y espacio
+                # Dash corto (como ghiaia3: ~0.05-0.1)
+                dash = min(DASH_LENGTH, L)
                 
-                key = (ang_q, round(perp_key, 3))
-                line_groups[key].append((para_pos, para_pos + L, x1, y1, L))  # Guardamos L
+                # Espacio = resto del unit cell (para que no se repita densamente)
+                space = -(1.0 - dash)
+                
+                # Redondear origen
+                ox = round(x1, 2)
+                oy = round(y1, 2)
+                
+                # Formatear línea
+                line = f"{ang_q}, {ox},{oy}, {s_x},{s_y}, {round(dash, 4)},{round(space, 4)}"
+                pat_lines.append(line)
         
-        # Generar .PAT
+        # Construir archivo .PAT
         lines = [
             "*HatchCraftModel, Generated Pattern",
             ";%TYPE=MODEL"
         ]
-        
-        count = 0
-        for (ang, perp_pos), segments in sorted(line_groups.items()):
-            # Filtrar familias con muy pocos segmentos o longitud total corta
-            total_length = sum(seg[4] for seg in segments)
-            if len(segments) < 2 and total_length < 0.1:
-                continue  # Ignorar familias con un solo segmento corto
-            
-            segments = sorted(segments, key=lambda s: s[0])
-            
-            first_seg = segments[0]
-            origin_x = round(first_seg[2], 4)
-            origin_y = round(first_seg[3], 4)
-            
-            dash_space = []
-            current_pos = first_seg[0]
-            
-            for para_start, para_end, _, _, _ in segments:
-                gap = para_start - current_pos
-                if gap > 0.02 and dash_space:  # Aumentado umbral de gap
-                    dash_space.append(round(-gap, 4))
-                
-                dash = para_end - para_start
-                if dash > 0.02:  # Aumentado umbral de dash
-                    dash_space.append(round(dash, 4))
-                    current_pos = para_end
-            
-            if not dash_space or len(dash_space) < 1:
-                continue
-            
-            # Espacio final
-            remaining = 1.0 - (current_pos % 1.0)
-            if 0.02 < remaining < 0.98:
-                dash_space.append(round(-remaining, 4))
-            
-            # Obtener shift para este ángulo
-            s_x, s_y = ANGLE_SHIFTS.get(ang, (1, 1))
-            
-            # Formatear dash-space como string
-            dash_str = ",".join(str(v) for v in dash_space)
-            
-            line = f"{ang}, {origin_x},{origin_y}, {s_x},{s_y}, {dash_str}"
-            lines.append(line)
-            count += 1
+        lines.extend(pat_lines)
         
         full_content = "\r\n".join(lines) + "\r\n"
         
@@ -156,5 +132,5 @@ class PatternGenerator:
             "processed_img": binary,
             "vector_img": vec_preview,
             "pat_content": full_content,
-            "stats": f"Patrón generado: {count} familias de líneas. Tipo: MODELO."
+            "stats": f"Patrón generado: {len(pat_lines)} líneas. Tipo: MODELO (estilo ghiaia3)."
         }
