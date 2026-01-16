@@ -22,7 +22,7 @@ class PatternGenerator:
     def __init__(self, size=100.0):
         self.size = float(size)
 
-    def process_image(self, image_file, epsilon_factor=0.005, closing_size=2, mode="Auto-Detectar", use_skeleton=True):
+    def process_image(self, image_file, epsilon_factor=0.005, closing_size=2, mode="Auto-Detectar", use_skeleton=True, canny_low=30, canny_high=100):
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         if img is None: return {"error": "Error al cargar imagen"}
@@ -38,8 +38,8 @@ class PatternGenerator:
         # Suavizado ligero para reducir ruido
         blurred = cv2.GaussianBlur(gray, (3, 3), 0)
         
-        # Detección de bordes con umbrales moderados
-        edges = cv2.Canny(blurred, 30, 100)
+        # Detección de bordes con umbrales configurables
+        edges = cv2.Canny(blurred, canny_low, canny_high)
         
         # Dilatar para conectar líneas rotas
         kernel = np.ones((2, 2), np.uint8)
@@ -85,10 +85,9 @@ class PatternGenerator:
                 dash = round(L, 4)
                 gap = round(-(1.0 - L), 4)
                 
-                if ang_q in [45, 135]:
-                    s_x, s_y = 0.7071067812, 0.7071067812
-                else:
-                    s_x, s_y = 1.0, 1.0
+                # Shift muy grande para que la línea no se repita (aparece solo una vez)
+                # delta_x = 0 (sin stagger), delta_y = grande (sin repetición paralela)
+                s_x, s_y = 0, 100
                 
                 line = f"{ang_q}, {ox},{oy}, {s_x},{s_y}, {dash},{gap}"
                 pat_lines.append(line)
