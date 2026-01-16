@@ -71,18 +71,16 @@ col_canvas, col_preview = st.columns([1, 1])
 with col_canvas:
     st.subheader("📐 Canvas de Dibujo")
     
-    # Preparar imagen de fondo
+    # Preparar imagen de fondo como numpy array
     background_image = None
     if st.session_state.bg_image:
         bg = st.session_state.bg_image.copy()
-        # Aplicar opacidad
-        bg = bg.convert("RGBA")
-        alpha = bg.split()[3] if bg.mode == 'RGBA' else Image.new('L', bg.size, 255)
-        alpha = alpha.point(lambda p: int(p * bg_opacity))
-        bg.putalpha(alpha)
-        # Convertir a RGB con fondo blanco
-        white_bg = Image.new('RGBA', bg.size, (255, 255, 255, 255))
-        background_image = Image.alpha_composite(white_bg, bg).convert('RGB')
+        bg = bg.convert("RGB")
+        # Aplicar opacidad mezclando con blanco
+        bg_array = np.array(bg, dtype=np.float32)
+        white = np.ones_like(bg_array) * 255
+        blended = (bg_array * bg_opacity + white * (1 - bg_opacity)).astype(np.uint8)
+        background_image = Image.fromarray(blended)
     
     # Canvas de dibujo
     canvas_result = st_canvas(
