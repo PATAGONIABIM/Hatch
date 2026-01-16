@@ -163,7 +163,7 @@ OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanatio
             }],
             "generationConfig": {
                 "temperature": 0.1,
-                "maxOutputTokens": 4096
+                "maxOutputTokens": 16384  # Aumentado para dar espacio después del "thinking"
             }
         }
         
