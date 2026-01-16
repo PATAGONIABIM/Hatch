@@ -83,10 +83,14 @@ class PatternGenerator:
                 # Para .pat, el shift define la familia de líneas paralelas.
                 # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # SHIFT PERPENDICULAR (sin negativo para evitar valores negativos)
-                # Usando sin θ (en vez de -sin θ) para minimizar negativos
-                s_x = round(self.size * math.sin(rad), 3)
-                s_y = round(self.size * math.cos(rad), 3)
+                # SHIFT FORZADO POSITIVO (Revit rechaza negativos)
+                # Calculamos perpendicular pero tomamos valor absoluto
+                s_x_calc = self.size * math.sin(rad)
+                s_y_calc = self.size * math.cos(rad)
+                
+                # Forzar positivos con abs() + pequeño offset si es cero
+                s_x = round(abs(s_x_calc) if abs(s_x_calc) > 0.01 else self.size, 3)
+                s_y = round(abs(s_y_calc) if abs(s_y_calc) > 0.01 else self.size, 3)
                 
                 # Redondear coordenadas también
                 ang = round(ang, 2)
