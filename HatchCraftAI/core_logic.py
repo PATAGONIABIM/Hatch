@@ -127,30 +127,36 @@ class AIPatternGenerator:
         _, img_encoded = cv2.imencode('.jpg', img, encode_param)
         img_base64 = base64.b64encode(img_encoded.tobytes()).decode('utf-8')
         
-        # Prompt para Gemini
-        prompt = """Analyze this image which shows a texture or pattern (like bricks, tiles, herringbone, etc).
+        # Prompt mejorado para Gemini
+        prompt = """Analyze this image showing a tile/brick pattern and generate a precise Revit PAT hatch file.
 
-I need you to generate a Revit/AutoCAD PAT hatch pattern file that reproduces this pattern geometrically.
+CRITICAL ANALYSIS STEPS:
+1. Count how many horizontal lines vs vertical lines you see
+2. Identify the spacing between parallel lines
+3. Note where lines start and end (creates the mortar joints)
 
-First, identify:
-1. Pattern type (herringbone, running bond, stack bond, random, etc.)
-2. Main angles used (typically 0, 45, 90, 135 degrees)
-3. Approximate proportions (width/height ratio of elements)
+PAT FORMAT RULES:
+- Line format: angle, x-origin, y-origin, delta-x, delta-y, dash, -gap, dash, -gap...
+- Angles: ONLY use 0, 45, 90, 135
+- For 0° and 90°: delta-x=0, delta-y=spacing (perpendicular distance between parallel lines)
+- For 45° and 135°: delta-x=0, delta-y=spacing
+- Dash = length to draw (positive)
+- Gap = length to skip (NEGATIVE number)
+- All values normalized to 0-1 unit cell
 
-Then generate the PAT file content. The format is:
-*PatternName, Description
-;%TYPE=MODEL
-angle, x-origin, y-origin, delta-x, delta-y, dash-length, -gap-length, ...
+EXAMPLE for horizontal brick courses:
+0, 0, 0.125, 0, 0.25, 0.5, -0.02  ; horizontal line at y=0.125, repeating every 0.25 units vertically
+0, 0, 0.375, 0, 0.25, 0.5, -0.02  ; another course
+90, 0.25, 0, 0.5, 0.125, 0.125, -0.125  ; vertical joints
 
-Rules:
-- Coordinates should be normalized 0-1 (unit cell)
-- Use angles: 0, 45, 90, 135 only
-- For 0° or 90°: use shift 1,1
-- For 45° or 135°: use shift 0.7071067812,0.7071067812
-- Keep lines minimal but representative of the pattern structure
-- Maximum 20 lines for clean patterns
+FOR THE IMAGE YOU SEE:
+1. Identify ALL mortar joint lines (horizontal and vertical)
+2. Generate a line for EACH distinct row of horizontal joints
+3. Generate lines for vertical joints with proper stagger
 
-Return ONLY the PAT file content, nothing else. Start with *PatternName line."""
+Generate 8-15 lines for complex patterns. Be PRECISE about positions.
+
+Output ONLY the PAT content starting with *PatternName. No explanations."""
 
         # API call a Gemini
         url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
