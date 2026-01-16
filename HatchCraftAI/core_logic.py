@@ -1,6 +1,9 @@
 import cv2
 import numpy as np
 import math
+import base64
+import json
+import re
 from skimage.morphology import skeletonize
 
 # Solo 4 ángulos principales
@@ -19,13 +22,10 @@ def quantize_angle(ang):
     return best
 
 def render_pat_preview(pat_content, tile_count=3, preview_size=600):
-    """
-    Renderiza el patrón PAT como lo vería Revit (con tiles repetidos)
-    """
+    """Renderiza el patrón PAT como lo vería Revit (con tiles repetidos)"""
     img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
     tile_size = preview_size / tile_count
     
-    # Parsear las líneas del PAT
     lines = pat_content.strip().split('\n')
     
     for line in lines:
@@ -38,27 +38,21 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
             angle = float(parts[0])
             ox, oy = float(parts[1]), float(parts[2])
             dx, dy = float(parts[3]), float(parts[4])
-            
-            # Parsear el patrón de dash-gap
             dash_pattern = [float(p) for p in parts[5:]]
             
-            # Dibujar para cada tile
             for tile_x in range(tile_count):
                 for tile_y in range(tile_count):
-                    # Origen en píxeles para este tile
                     base_x = tile_x * tile_size + ox * tile_size
                     base_y = preview_size - (tile_y * tile_size + oy * tile_size)
                     
-                    # Dirección de la línea
                     ang_rad = math.radians(angle)
                     dir_x = math.cos(ang_rad)
-                    dir_y = -math.sin(ang_rad)  # Y invertido en imagen
+                    dir_y = -math.sin(ang_rad)
                     
-                    # Dibujar el patrón de dashes a lo largo de la línea
                     pos = 0
                     for i, dash_val in enumerate(dash_pattern):
                         length = abs(dash_val) * tile_size
-                        if dash_val > 0:  # Es un dash (dibujar)
+                        if dash_val > 0:
                             x1 = int(base_x + dir_x * pos)
                             y1 = int(base_y + dir_y * pos)
                             x2 = int(base_x + dir_x * (pos + length))
@@ -69,7 +63,6 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
         except (ValueError, IndexError):
             continue
     
-    # Dibujar bordes de tiles para referencia
     for i in range(1, tile_count):
         pos = int(i * tile_size)
         cv2.line(img, (pos, 0), (pos, preview_size), (200, 200, 200), 1)
@@ -77,7 +70,109 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
     
     return img
 
+
+class AIPatternGenerator:
+    """Generador de patrones usando IA (Gemini Vision)"""
+    
+    def __init__(self, api_key):
+        self.api_key = api_key
+        
+    def analyze_and_generate(self, image_bytes, tile_size=100.0):
+        """Analiza la imagen con Gemini y genera un patrón PAT geométrico"""
+        import requests
+        
+        # Convertir imagen a base64
+        img_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        
+        # Prompt para Gemini
+        prompt = """Analyze this image which shows a texture or pattern (like bricks, tiles, herringbone, etc).
+
+I need you to generate a Revit/AutoCAD PAT hatch pattern file that reproduces this pattern geometrically.
+
+First, identify:
+1. Pattern type (herringbone, running bond, stack bond, random, etc.)
+2. Main angles used (typically 0, 45, 90, 135 degrees)
+3. Approximate proportions (width/height ratio of elements)
+
+Then generate the PAT file content. The format is:
+*PatternName, Description
+;%TYPE=MODEL
+angle, x-origin, y-origin, delta-x, delta-y, dash-length, -gap-length, ...
+
+Rules:
+- Coordinates should be normalized 0-1 (unit cell)
+- Use angles: 0, 45, 90, 135 only
+- For 0° or 90°: use shift 1,1
+- For 45° or 135°: use shift 0.7071067812,0.7071067812
+- Keep lines minimal but representative of the pattern structure
+- Maximum 20 lines for clean patterns
+
+Return ONLY the PAT file content, nothing else. Start with *PatternName line."""
+
+        # API call a Gemini
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={self.api_key}"
+        
+        payload = {
+            "contents": [{
+                "parts": [
+                    {"text": prompt},
+                    {
+                        "inline_data": {
+                            "mime_type": "image/jpeg",
+                            "data": img_base64
+                        }
+                    }
+                ]
+            }],
+            "generationConfig": {
+                "temperature": 0.2,
+                "maxOutputTokens": 2048
+            }
+        }
+        
+        try:
+            response = requests.post(url, json=payload, timeout=30)
+            response.raise_for_status()
+            result = response.json()
+            
+            # Extraer el texto de la respuesta
+            pat_content = result['candidates'][0]['content']['parts'][0]['text']
+            
+            # Limpiar el contenido (quitar markdown si existe)
+            pat_content = pat_content.strip()
+            if pat_content.startswith('```'):
+                pat_content = re.sub(r'^```\w*\n?', '', pat_content)
+                pat_content = re.sub(r'\n?```$', '', pat_content)
+            
+            # Asegurar que empiece con *
+            if not pat_content.startswith('*'):
+                # Buscar la línea que empieza con *
+                lines = pat_content.split('\n')
+                for i, line in enumerate(lines):
+                    if line.strip().startswith('*'):
+                        pat_content = '\n'.join(lines[i:])
+                        break
+            
+            # Generar preview
+            pat_preview = render_pat_preview(pat_content)
+            
+            return {
+                "pat_content": pat_content + "\r\n",
+                "pat_preview": pat_preview,
+                "stats": "Patrón generado con IA (Gemini Vision)"
+            }
+            
+        except requests.exceptions.RequestException as e:
+            return {"error": f"Error de conexión: {str(e)}"}
+        except (KeyError, IndexError) as e:
+            return {"error": f"Error parseando respuesta: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Error inesperado: {str(e)}"}
+
+
 class PatternGenerator:
+    """Generador clásico de patrones (detección de bordes)"""
+    
     def __init__(self, size=100.0):
         self.size = float(size)
 
@@ -96,21 +191,17 @@ class PatternGenerator:
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # Suavizado configurable para reducir ruido
         if blur_size > 1:
-            blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1  # Debe ser impar
+            blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1
             blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
         else:
             blurred = gray
         
-        # Detección de bordes con umbrales configurables
         edges = cv2.Canny(blurred, canny_low, canny_high)
         
-        # Dilatar para conectar líneas rotas
         kernel = np.ones((2, 2), np.uint8)
         edges = cv2.dilate(edges, kernel, iterations=1)
         
-        # Esqueletizar para adelgazar
         if use_skeleton:
             edges = (skeletonize(edges > 0) * 255).astype(np.uint8)
         
@@ -148,7 +239,6 @@ class PatternGenerator:
                 dash = round(L, 4)
                 gap = round(-(1.0 - L), 4)
                 
-                # Shift estándar del formato PAT (como en ghiaia3)
                 if ang_q in [45, 135]:
                     s_x, s_y = 0.7071067812, 0.7071067812
                 else:
@@ -164,8 +254,6 @@ class PatternGenerator:
         header_lines.extend(pat_lines)
         
         full_content = "\r\n".join(header_lines) + "\r\n"
-        
-        # Generar preview del PAT como lo vería Revit
         pat_preview = render_pat_preview(full_content)
         
         return {
