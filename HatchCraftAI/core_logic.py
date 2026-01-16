@@ -3,7 +3,7 @@ import numpy as np
 import math
 import ezdxf
 
-def render_pat_preview(pat_content, tile_count=3, preview_size=600):
+def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0):
     """Renderiza el patrón PAT como lo vería Revit"""
     img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
     
@@ -65,7 +65,7 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
     
     # Calcular escala basada en el tamaño del tile
     pattern_size = tile_size * tile_count
-    scale = preview_size / pattern_size
+    scale = (preview_size / pattern_size) * manual_scale
     
     # Dibujar cada segmento para cada tile
     for seg in segments:

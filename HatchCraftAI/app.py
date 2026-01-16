@@ -60,11 +60,19 @@ with col1:
 with col2:
     st.subheader("🔲 Resultado")
     
+    # Slider de escala
+    preview_scale = st.slider("🔍 Escala del Preview", 0.1, 10.0, 1.0, 0.1, 
+                              help="Ajusta para ver mejor el patrón")
+    
     if 'result' in st.session_state and st.session_state.result:
         result = st.session_state.result
         
+        # Regenerar preview con la escala seleccionada
+        pat_preview = render_pat_preview(result["pat_content"], tile_count=3, 
+                                         preview_size=600, manual_scale=preview_scale)
+        
         # Preview
-        st.image(result["pat_preview"], caption="Preview tileado (3x3)", use_container_width=True)
+        st.image(pat_preview, caption="Preview tileado (3x3)", use_container_width=True)
         
         # Tabs
         tab1, tab2 = st.tabs(["📄 Código .PAT", "📥 Descargar"])
