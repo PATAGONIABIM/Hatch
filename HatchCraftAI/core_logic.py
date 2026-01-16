@@ -80,9 +80,25 @@ class AIPatternGenerator:
     def analyze_and_generate(self, image_bytes, tile_size=100.0):
         """Analiza la imagen con Gemini y genera un patrón PAT geométrico"""
         import requests
+        from io import BytesIO
         
-        # Convertir imagen a base64
-        img_base64 = base64.b64encode(image_bytes).decode('utf-8')
+        # Comprimir imagen para reducir tamaño (máx 800px)
+        nparr = np.frombuffer(image_bytes, np.uint8)
+        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        if img is None:
+            return {"error": "Error al cargar la imagen"}
+        
+        # Redimensionar si es muy grande
+        max_dim = 800
+        h, w = img.shape[:2]
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        
+        # Convertir a JPEG comprimido
+        encode_param = [int(cv2.IMWRITE_JPEG_QUALITY), 85]
+        _, img_encoded = cv2.imencode('.jpg', img, encode_param)
+        img_base64 = base64.b64encode(img_encoded.tobytes()).decode('utf-8')
         
         # Prompt para Gemini
         prompt = """Analyze this image which shows a texture or pattern (like bricks, tiles, herringbone, etc).
@@ -131,8 +147,17 @@ Return ONLY the PAT file content, nothing else. Start with *PatternName line."""
         }
         
         try:
-            response = requests.post(url, json=payload, timeout=30)
-            response.raise_for_status()
+            # Timeout más largo (60s) y reintentos
+            for attempt in range(3):
+                try:
+                    response = requests.post(url, json=payload, timeout=60)
+                    response.raise_for_status()
+                    break
+                except requests.exceptions.Timeout:
+                    if attempt == 2:
+                        raise
+                    continue
+            
             result = response.json()
             
             # Extraer el texto de la respuesta
