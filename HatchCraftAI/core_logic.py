@@ -1,8 +1,7 @@
 import cv2
 import numpy as np
 import math
-import base64
-import requests
+import ezdxf
 
 VALID_ANGLES = [0, 45, 90, 135]
 
@@ -87,170 +86,125 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
     return img
 
 
-class GeminiPatternGenerator:
-    """Generador de patrones usando Gemini 3 Flash Preview"""
+class DXFtoPatConverter:
+    """Convierte archivos DXF de AutoCAD a formato PAT"""
     
-    def __init__(self, api_key):
-        self.api_key = api_key
-        self.model = "gemini-3-flash-preview"
+    def __init__(self, tile_size=1.0):
+        self.tile_size = tile_size
     
-    def generate_pattern(self, image_bytes):
-        """Genera un patrón PAT desde una imagen usando Gemini 3 Pro"""
-        
-        # Comprimir imagen
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        if img is None:
-            return {"error": "Error al cargar la imagen"}
-        
-        # Redimensionar
-        max_dim = 1024
-        h, w = img.shape[:2]
-        if max(h, w) > max_dim:
-            scale = max_dim / max(h, w)
-            img = cv2.resize(img, (int(w * scale), int(h * scale)))
-        
-        _, img_encoded = cv2.imencode('.jpg', img, [cv2.IMWRITE_JPEG_QUALITY, 90])
-        img_base64 = base64.b64encode(img_encoded.tobytes()).decode('utf-8')
-        
-        # Prompt optimizado para Gemini 3 Pro con "Thinking"
-        prompt = """You are an expert in Revit/AutoCAD hatch pattern files (.PAT format).
-
-TASK: Analyze this tile/brick pattern image and generate a precise PAT file that recreates it.
-
-STEP 1 - ANALYSIS:
-Look at the image carefully and identify:
-- What type of pattern is this? (bricks, tiles, herringbone, basketweave, stone, etc.)
-- What are the main line directions? (horizontal at 0°, vertical at 90°, diagonal at 45° or 135°)
-- How are elements arranged? (staggered, aligned, rotated groups, etc.)
-- What is the approximate ratio/proportion of elements?
-
-STEP 2 - PAT FORMAT RULES:
-Each line in a PAT file defines a family of parallel lines:
-angle, x-origin, y-origin, delta-x, delta-y, dash, -gap, dash, -gap...
-
-Where:
-- angle: Direction (only use 0, 45, 90, or 135)
-- x-origin, y-origin: Starting point (normalized 0-1)
-- delta-x: Offset along line direction for next parallel line
-- delta-y: Perpendicular spacing between parallel lines
-- dash: Length to draw (positive number)
-- gap: Length to skip (NEGATIVE number)
-
-STEP 3 - GENERATE THE PAT:
-Create a PAT file with:
-- Header: *PatternName, Description
-- Type line: ;%TYPE=MODEL
-- Pattern lines: One line per family of parallel lines needed
-
-CRITICAL RULES:
-1. Use ONLY angles 0, 45, 90, 135
-2. All coordinates normalized to 0-1 range
-3. For horizontal/vertical lines: delta-y should be the spacing between courses
-4. Dash lengths should match the visible line segments
-5. Generate 5-20 lines depending on pattern complexity
-
-OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanations."""
-
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{self.model}:generateContent?key={self.api_key}"
-        
-        payload = {
-            "contents": [{
-                "parts": [
-                    {"text": prompt},
-                    {"inline_data": {"mime_type": "image/jpeg", "data": img_base64}}
-                ]
-            }],
-            "generationConfig": {
-                "temperature": 0.1,
-                "maxOutputTokens": 16384  # Aumentado para dar espacio después del "thinking"
-            }
-        }
-        
+    def convert(self, dxf_file):
+        """Lee un archivo DXF y genera un archivo PAT"""
         try:
-            response = requests.post(url, json=payload, timeout=120)
-            response.raise_for_status()
-            result = response.json()
+            # Leer el DXF
+            doc = ezdxf.read(dxf_file)
+            msp = doc.modelspace()
             
-            # Debug: imprimir estructura de respuesta
-            import json as json_module
-            import re
+            # Encontrar los límites del dibujo
+            min_x, min_y = float('inf'), float('inf')
+            max_x, max_y = float('-inf'), float('-inf')
             
-            # Extraer texto - manejar diferentes estructuras
-            pat_content = None
+            lines_data = []
             
-            if 'candidates' in result and len(result['candidates']) > 0:
-                candidate = result['candidates'][0]
-                if 'content' in candidate and 'parts' in candidate['content']:
-                    parts = candidate['content']['parts']
-                    if len(parts) > 0 and 'text' in parts[0]:
-                        pat_content = parts[0]['text'].strip()
-                elif 'text' in candidate:
-                    pat_content = candidate['text'].strip()
-            elif 'text' in result:
-                pat_content = result['text'].strip()
-            
-            if not pat_content:
-                return {"error": f"Respuesta vacía del modelo. Estructura: {json_module.dumps(result, indent=2)[:500]}"}
-            
-            # Limpiar markdown si existe
-            if '```' in pat_content:
-                # Extraer contenido entre ``` ```
-                match = re.search(r'```(?:\w*\n)?(.*?)```', pat_content, re.DOTALL)
-                if match:
-                    pat_content = match.group(1).strip()
-                else:
-                    pat_content = re.sub(r'^```\w*\n?', '', pat_content)
-                    pat_content = re.sub(r'\n?```$', '', pat_content)
-            
-            # Buscar el inicio del patrón PAT (línea que empieza con *)
-            if not pat_content.startswith('*'):
-                lines = pat_content.split('\n')
-                pat_start = -1
-                for i, line in enumerate(lines):
-                    if line.strip().startswith('*'):
-                        pat_start = i
-                        break
+            # Extraer todas las líneas
+            for entity in msp:
+                if entity.dxftype() == 'LINE':
+                    x1, y1 = entity.dxf.start.x, entity.dxf.start.y
+                    x2, y2 = entity.dxf.end.x, entity.dxf.end.y
+                    
+                    min_x = min(min_x, x1, x2)
+                    min_y = min(min_y, y1, y2)
+                    max_x = max(max_x, x1, x2)
+                    max_y = max(max_y, y1, y2)
+                    
+                    lines_data.append((x1, y1, x2, y2))
                 
-                if pat_start >= 0:
-                    # Extraer solo las líneas desde * hasta el final del patrón
-                    pat_lines = []
-                    for line in lines[pat_start:]:
-                        line = line.strip()
-                        # Líneas válidas del PAT: empiezan con *, ;, o número
-                        if line.startswith('*') or line.startswith(';') or (line and line[0].isdigit()):
-                            pat_lines.append(line)
-                        elif not line:
-                            continue
-                        else:
-                            # Si encontramos texto que no es PAT, parar
-                            break
-                    pat_content = '\n'.join(pat_lines)
+                elif entity.dxftype() == 'LWPOLYLINE':
+                    points = list(entity.get_points())
+                    for i in range(len(points) - 1):
+                        x1, y1 = points[i][0], points[i][1]
+                        x2, y2 = points[i+1][0], points[i+1][1]
+                        
+                        min_x = min(min_x, x1, x2)
+                        min_y = min(min_y, y1, y2)
+                        max_x = max(max_x, x1, x2)
+                        max_y = max(max_y, y1, y2)
+                        
+                        lines_data.append((x1, y1, x2, y2))
+                    
+                    # Si es cerrada, conectar último con primero
+                    if entity.closed and len(points) > 2:
+                        x1, y1 = points[-1][0], points[-1][1]
+                        x2, y2 = points[0][0], points[0][1]
+                        lines_data.append((x1, y1, x2, y2))
             
-            # Contar líneas de patrón
-            num_lines = len([l for l in pat_content.split('\n') if l.strip() and not l.startswith('*') and not l.startswith(';')])
+            if not lines_data:
+                return {"error": "No se encontraron líneas en el archivo DXF"}
+            
+            # Calcular el tamaño del tile
+            width = max_x - min_x
+            height = max_y - min_y
+            tile_dim = max(width, height)
+            
+            if tile_dim == 0:
+                return {"error": "El dibujo tiene tamaño cero"}
+            
+            # Generar líneas PAT
+            pat_lines = []
+            
+            for x1, y1, x2, y2 in lines_data:
+                # Normalizar coordenadas a 0-1
+                nx1 = (x1 - min_x) / tile_dim
+                ny1 = (y1 - min_y) / tile_dim
+                nx2 = (x2 - min_x) / tile_dim
+                ny2 = (y2 - min_y) / tile_dim
+                
+                dx = nx2 - nx1
+                dy = ny2 - ny1
+                length = math.sqrt(dx**2 + dy**2)
+                
+                if length < 0.001:
+                    continue
+                
+                # Calcular ángulo
+                ang = math.degrees(math.atan2(dy, dx))
+                if ang < 0:
+                    ang += 360
+                ang_q = quantize_angle(ang)
+                
+                # Origen y parámetros
+                ox = round(nx1, 4)
+                oy = round(ny1, 4)
+                dash = round(length, 4)
+                gap = round(-(1.0 - length), 4)
+                
+                # Shift para evitar repetición
+                if ang_q in [45, 135]:
+                    s_x, s_y = 0, 0.1414
+                else:
+                    s_x, s_y = 0, 0.25
+                
+                pat_line = f"{ang_q}, {ox},{oy}, {s_x},{s_y}, {dash},{gap}"
+                pat_lines.append(pat_line)
+            
+            # Construir el archivo PAT
+            header = [
+                "*DXF_Pattern, Converted from AutoCAD DXF",
+                ";%TYPE=MODEL"
+            ]
+            header.extend(pat_lines)
+            
+            pat_content = "\r\n".join(header) + "\r\n"
             
             # Generar preview
             pat_preview = render_pat_preview(pat_content)
             
             return {
-                "pat_content": pat_content + "\r\n",
+                "pat_content": pat_content,
                 "pat_preview": pat_preview,
-                "stats": f"✅ Patrón generado con Gemini 3 Pro: {num_lines} líneas"
+                "stats": f"✅ Convertido: {len(pat_lines)} líneas desde DXF"
             }
             
-        except requests.exceptions.HTTPError as e:
-            error_msg = str(e)
-            try:
-                error_detail = response.json()
-                if 'error' in error_detail:
-                    error_msg = error_detail['error'].get('message', str(e))
-            except:
-                pass
-            return {"error": f"Error API: {error_msg}"}
-        except requests.exceptions.Timeout:
-            return {"error": "Timeout - El modelo tardó demasiado. Intenta con una imagen más pequeña."}
-        except KeyError as e:
-            return {"error": f"Error parseando respuesta: {str(e)}"}
+        except ezdxf.DXFError as e:
+            return {"error": f"Error leyendo DXF: {str(e)}"}
         except Exception as e:
             return {"error": f"Error: {str(e)}"}

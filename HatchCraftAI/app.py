@@ -1,78 +1,63 @@
 import streamlit as st
 import numpy as np
-from PIL import Image
-from core_logic import GeminiPatternGenerator, render_pat_preview
+from core_logic import DXFtoPatConverter, render_pat_preview
+import tempfile
+import os
 
-st.set_page_config(page_title="HatchCraft AI v5.0", layout="wide")
+st.set_page_config(page_title="HatchCraft - DXF to PAT", layout="wide")
 
-# Session state
-if 'gemini_api_key' not in st.session_state:
-    st.session_state.gemini_api_key = ""
+st.title("HatchCraft DXF → PAT 📐")
+st.markdown("### Convierte dibujos de AutoCAD a patrones para Revit")
 
-st.title("HatchCraft AI 🧱✨")
-st.markdown("### Generación de patrones con Gemini 3 Pro")
+st.info("""
+**Instrucciones:**
+1. Dibuja tu patrón en **AutoCAD** usando solo **líneas** (LINE o POLYLINE)
+2. Guarda como **DXF** (File → Save As → DXF)
+3. Sube el archivo DXF aquí
+4. Descarga el archivo .PAT para Revit
 
-# Sidebar - API Key
-with st.sidebar:
-    st.header("⚙️ Configuración")
-    
-    if st.session_state.gemini_api_key:
-        st.success("✅ API Key configurada")
-        if st.button("🗑️ Eliminar API Key"):
-            st.session_state.gemini_api_key = ""
-            st.rerun()
-    else:
-        st.warning("⚠️ Configura tu API Key")
-    
-    with st.expander("🔑 API Key", expanded=not st.session_state.gemini_api_key):
-        new_key = st.text_input("Gemini API Key", type="password")
-        if st.button("💾 Guardar"):
-            if new_key:
-                st.session_state.gemini_api_key = new_key
-                st.rerun()
-    
-    st.divider()
-    st.caption("Modelo: Gemini 3 Flash Preview")
+**Tip:** Dibuja el patrón en un cuadrado de 1x1 unidades para mejor escala.
+""")
 
-# Main content
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("📷 Imagen del Patrón")
+    st.subheader("📁 Subir DXF")
     
     uploaded_file = st.file_uploader(
-        "Sube una imagen del patrón a replicar",
-        type=["png", "jpg", "jpeg"]
+        "Arrastra tu archivo DXF aquí",
+        type=["dxf"]
     )
     
     if uploaded_file:
-        image = Image.open(uploaded_file)
-        st.image(image, caption="Imagen cargada", use_container_width=True)
+        st.success(f"✅ Archivo cargado: {uploaded_file.name}")
         
-        if not st.session_state.gemini_api_key:
-            st.error("⚠️ Configura tu API Key en la barra lateral")
-        else:
-            if st.button("🚀 Generar Patrón con IA", type="primary", use_container_width=True):
-                with st.spinner("🤖 Analizando imagen con Gemini 3 Pro..."):
-                    # Leer bytes
-                    uploaded_file.seek(0)
-                    image_bytes = uploaded_file.read()
-                    
-                    # Generar
-                    generator = GeminiPatternGenerator(st.session_state.gemini_api_key)
-                    result = generator.generate_pattern(image_bytes)
-                    
-                    if "error" in result:
-                        st.error(result["error"])
-                    else:
-                        st.session_state.last_result = result
-                        st.success(result["stats"])
+        # Guardar temporalmente el archivo
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.dxf') as tmp:
+            tmp.write(uploaded_file.read())
+            tmp_path = tmp.name
+        
+        try:
+            # Convertir
+            with st.spinner("🔄 Convirtiendo DXF a PAT..."):
+                converter = DXFtoPatConverter()
+                result = converter.convert(tmp_path)
+            
+            if "error" in result:
+                st.error(result["error"])
+            else:
+                st.session_state.result = result
+                st.success(result["stats"])
+        finally:
+            # Limpiar archivo temporal
+            if os.path.exists(tmp_path):
+                os.unlink(tmp_path)
 
 with col2:
     st.subheader("🔲 Resultado")
     
-    if 'last_result' in st.session_state and st.session_state.last_result:
-        result = st.session_state.last_result
+    if 'result' in st.session_state and st.session_state.result:
+        result = st.session_state.result
         
         # Preview
         st.image(result["pat_preview"], caption="Preview tileado (3x3)", use_container_width=True)
@@ -87,7 +72,7 @@ with col2:
             st.download_button(
                 "📥 Descargar .PAT para Revit",
                 result["pat_content"],
-                "HatchCraft_AI.pat",
+                "HatchCraft_DXF.pat",
                 "text/plain",
                 use_container_width=True
             )
@@ -95,15 +80,18 @@ with col2:
     else:
         # Placeholder
         empty_img = np.ones((400, 400, 3), dtype=np.uint8) * 240
-        st.image(empty_img, caption="El patrón generado aparecerá aquí")
-        st.info("👈 Sube una imagen y haz clic en 'Generar Patrón'")
+        st.image(empty_img, caption="El patrón convertido aparecerá aquí")
+        st.info("👈 Sube un archivo DXF para convertir")
 
 # Footer
 st.divider()
 st.markdown("""
-**Instrucciones:**
-1. Obtén tu API Key gratis en [Google AI Studio](https://aistudio.google.com/apikey)
-2. Sube una imagen del patrón que quieres replicar
-3. Clic en "Generar Patrón con IA"
-4. Descarga el archivo .PAT e impórtalo en Revit
+**Formatos soportados:**
+- Entidades LINE
+- Entidades LWPOLYLINE (polylines)
+- Coordenadas en cualquier unidad (se normalizan automáticamente)
+
+**Limitaciones:**
+- Solo líneas rectas (no arcos, círculos o splines)
+- Ángulos se redondean a 0°, 45°, 90° o 135°
 """)
