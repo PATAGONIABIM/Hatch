@@ -26,20 +26,29 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
     img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
     tile_size = preview_size / tile_count
     
-    lines = pat_content.strip().split('\n')
+    lines = pat_content.strip().replace('\r\n', '\n').split('\n')
     
     for line in lines:
         line = line.strip()
-        if line.startswith('*') or line.startswith(';') or not line:
+        if not line or line.startswith('*') or line.startswith(';'):
             continue
         
         try:
+            # Limpiar y parsear
             parts = [p.strip() for p in line.split(',')]
+            if len(parts) < 5:
+                continue
+                
             angle = float(parts[0])
             ox, oy = float(parts[1]), float(parts[2])
             dx, dy = float(parts[3]), float(parts[4])
-            dash_pattern = [float(p) for p in parts[5:]]
             
+            # Parsear dash pattern (puede estar vacío para línea continua)
+            dash_pattern = []
+            if len(parts) > 5:
+                dash_pattern = [float(p) for p in parts[5:] if p.strip()]
+            
+            # Para cada tile
             for tile_x in range(tile_count):
                 for tile_y in range(tile_count):
                     base_x = tile_x * tile_size + ox * tile_size
@@ -49,20 +58,38 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
                     dir_x = math.cos(ang_rad)
                     dir_y = -math.sin(ang_rad)
                     
-                    pos = 0
-                    for i, dash_val in enumerate(dash_pattern):
-                        length = abs(dash_val) * tile_size
-                        if dash_val > 0:
-                            x1 = int(base_x + dir_x * pos)
-                            y1 = int(base_y + dir_y * pos)
-                            x2 = int(base_x + dir_x * (pos + length))
-                            y2 = int(base_y + dir_y * (pos + length))
-                            cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
-                        pos += length
+                    if not dash_pattern:
+                        # Línea continua - dibujar una línea larga
+                        x1 = int(base_x)
+                        y1 = int(base_y)
+                        x2 = int(base_x + dir_x * tile_size)
+                        y2 = int(base_y + dir_y * tile_size)
+                        cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
+                    else:
+                        # Dibujar patrón de dashes
+                        pos = 0
+                        total_len = sum(abs(d) for d in dash_pattern)
+                        if total_len == 0:
+                            continue
                         
-        except (ValueError, IndexError):
+                        # Repetir el patrón a lo largo de la línea
+                        while pos < tile_size * 1.5:
+                            for dash_val in dash_pattern:
+                                length = abs(dash_val) * tile_size
+                                if dash_val > 0:  # Es un dash (dibujar)
+                                    x1 = int(base_x + dir_x * pos)
+                                    y1 = int(base_y + dir_y * pos)
+                                    x2 = int(base_x + dir_x * (pos + length))
+                                    y2 = int(base_y + dir_y * (pos + length))
+                                    cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
+                                pos += length
+                                if pos > tile_size * 1.5:
+                                    break
+                        
+        except (ValueError, IndexError) as e:
             continue
     
+    # Dibujar grid de tiles
     for i in range(1, tile_count):
         pos = int(i * tile_size)
         cv2.line(img, (pos, 0), (pos, preview_size), (200, 200, 200), 1)
