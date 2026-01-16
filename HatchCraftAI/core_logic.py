@@ -83,33 +83,12 @@ class PatternGenerator:
                 # Para .pat, el shift define la familia de líneas paralelas.
                 # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # ESTRATEGIA SIMPLIFICADA: Shift basado en cuadrantes
-                # Revit SOLO acepta valores positivos en shift_x y shift_y.
-                # Usamos el ángulo de la línea para decidir shift ortogonal simple.
-                
-                # Normalizar ángulo
-                ang_normalized = ang % 360
-                
-                # Decidir shift basado en el ángulo de la línea (no perpendicular)
-                # Para líneas horizontales (~0° o ~180°): repetir verticalmente
-                # Para líneas verticales (~90° o ~270°): repetir horizontalmente
-                
-                if (ang_normalized < 45) or (ang_normalized >= 315):
-                    # Línea horizontal → shift vertical
-                    s_x = 0
-                    s_y = 1  # Usar 1 como en test exitoso
-                elif (45 <= ang_normalized < 135):
-                    # Línea vertical → shift horizontal  
-                    s_x = 1  # Usar 1 como en test exitoso
-                    s_y = 0
-                elif (135 <= ang_normalized < 225):
-                    # Línea horizontal invertida → shift vertical
-                    s_x = 0
-                    s_y = 1  # Usar 1 como en test exitoso
-                else:
-                    # Línea vertical invertida → shift horizontal
-                    s_x = 1  # Usar 1 como en test exitoso
-                    s_y = 0
+                # SHIFT UNIFORME OBLIGATORIO
+                # Revit REQUIERE que TODAS las líneas tengan el mismo shift.
+                # Si usamos (1,0) para algunas y (0,1) para otras, falla.
+                # Solución: Usar siempre (0, 1) como en los tests exitosos.
+                s_x = 0
+                s_y = 1
                 
                 # Redondear coordenadas
                 ang = round(ang, 2)

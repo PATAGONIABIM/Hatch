@@ -1,0 +1,5 @@
+*TestOriginZero, Test Pattern
+;%TYPE=MODEL
+0, 0, 0, 0, 1, 5, -1
+90, 0, 0, 1, 0, 8, -1
+45, 0, 0, 0, 1, 3, -1
