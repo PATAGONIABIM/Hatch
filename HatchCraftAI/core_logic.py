@@ -88,11 +88,11 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600):
 
 
 class GeminiPatternGenerator:
-    """Generador de patrones usando Gemini 2.5 Flash Lite"""
+    """Generador de patrones usando Gemini 3 Flash Preview"""
     
     def __init__(self, api_key):
         self.api_key = api_key
-        self.model = "gemini-2.5-flash-lite"
+        self.model = "gemini-3-flash-preview"
     
     def generate_pattern(self, image_bytes):
         """Genera un patrón PAT desde una imagen usando Gemini 3 Pro"""

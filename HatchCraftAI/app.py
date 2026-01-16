@@ -32,7 +32,7 @@ with st.sidebar:
                 st.rerun()
     
     st.divider()
-    st.caption("Modelo: Gemini 2.5 Flash Lite")
+    st.caption("Modelo: Gemini 3 Flash Preview")
 
 # Main content
 col1, col2 = st.columns([1, 1])
