@@ -18,11 +18,72 @@ def quantize_angle(ang):
             best = valid
     return best
 
+def render_pat_preview(pat_content, tile_count=3, preview_size=600):
+    """
+    Renderiza el patrón PAT como lo vería Revit (con tiles repetidos)
+    """
+    img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
+    tile_size = preview_size / tile_count
+    
+    # Parsear las líneas del PAT
+    lines = pat_content.strip().split('\n')
+    
+    for line in lines:
+        line = line.strip()
+        if line.startswith('*') or line.startswith(';') or not line:
+            continue
+        
+        try:
+            parts = [p.strip() for p in line.split(',')]
+            angle = float(parts[0])
+            ox, oy = float(parts[1]), float(parts[2])
+            dx, dy = float(parts[3]), float(parts[4])
+            
+            # Parsear el patrón de dash-gap
+            dash_pattern = [float(p) for p in parts[5:]]
+            
+            # Dibujar para cada tile
+            for tile_x in range(tile_count):
+                for tile_y in range(tile_count):
+                    # Origen en píxeles para este tile
+                    base_x = tile_x * tile_size + ox * tile_size
+                    base_y = preview_size - (tile_y * tile_size + oy * tile_size)
+                    
+                    # Dirección de la línea
+                    ang_rad = math.radians(angle)
+                    dir_x = math.cos(ang_rad)
+                    dir_y = -math.sin(ang_rad)  # Y invertido en imagen
+                    
+                    # Dibujar el patrón de dashes a lo largo de la línea
+                    pos = 0
+                    for i, dash_val in enumerate(dash_pattern):
+                        length = abs(dash_val) * tile_size
+                        if dash_val > 0:  # Es un dash (dibujar)
+                            x1 = int(base_x + dir_x * pos)
+                            y1 = int(base_y + dir_y * pos)
+                            x2 = int(base_x + dir_x * (pos + length))
+                            y2 = int(base_y + dir_y * (pos + length))
+                            cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
+                        pos += length
+                        
+        except (ValueError, IndexError):
+            continue
+    
+    # Dibujar bordes de tiles para referencia
+    for i in range(1, tile_count):
+        pos = int(i * tile_size)
+        cv2.line(img, (pos, 0), (pos, preview_size), (200, 200, 200), 1)
+        cv2.line(img, (0, pos), (preview_size, pos), (200, 200, 200), 1)
+    
+    return img
+
 class PatternGenerator:
     def __init__(self, size=100.0):
         self.size = float(size)
 
-    def process_image(self, image_file, epsilon_factor=0.005, closing_size=2, mode="Auto-Detectar", use_skeleton=True, canny_low=30, canny_high=100, blur_size=3):
+    def process_image(self, image_file, epsilon_factor=0.005, closing_size=2, mode="Auto-Detectar", 
+                     use_skeleton=True, canny_low=30, canny_high=100, blur_size=3,
+                     min_contour_len=20, min_segment_len=0.025):
         file_bytes = np.asarray(bytearray(image_file.read()), dtype=np.uint8)
         img = cv2.imdecode(file_bytes, cv2.IMREAD_COLOR)
         if img is None: return {"error": "Error al cargar imagen"}
@@ -59,12 +120,10 @@ class PatternGenerator:
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
         pat_lines = []
-        MIN_CONTOUR_LEN = 20
-        MIN_SEGMENT_LEN = 0.025
         
         for cnt in contours:
             arc_len = cv2.arcLength(cnt, True)
-            if arc_len < MIN_CONTOUR_LEN: continue
+            if arc_len < min_contour_len: continue
             
             approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
             pts = approx[:, 0, :]
@@ -78,7 +137,7 @@ class PatternGenerator:
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
-                if L < MIN_SEGMENT_LEN: continue
+                if L < min_segment_len: continue
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
@@ -90,7 +149,6 @@ class PatternGenerator:
                 gap = round(-(1.0 - L), 4)
                 
                 # Shift estándar del formato PAT (como en ghiaia3)
-                # El patrón se repite cada 1 unidad, las líneas están en posiciones únicas 0-1
                 if ang_q in [45, 135]:
                     s_x, s_y = 0.7071067812, 0.7071067812
                 else:
@@ -99,17 +157,21 @@ class PatternGenerator:
                 line = f"{ang_q}, {ox},{oy}, {s_x},{s_y}, {dash},{gap}"
                 pat_lines.append(line)
         
-        lines = [
+        header_lines = [
             "*HatchCraftModel, Generated Pattern",
             ";%TYPE=MODEL"
         ]
-        lines.extend(pat_lines)
+        header_lines.extend(pat_lines)
         
-        full_content = "\r\n".join(lines) + "\r\n"
+        full_content = "\r\n".join(header_lines) + "\r\n"
+        
+        # Generar preview del PAT como lo vería Revit
+        pat_preview = render_pat_preview(full_content)
         
         return {
             "processed_img": binary,
             "vector_img": vec_preview,
+            "pat_preview": pat_preview,
             "pat_content": full_content,
             "stats": f"Patrón generado: {len(pat_lines)} líneas."
         }
