@@ -111,14 +111,20 @@ class PatternGenerator:
                     s_x = self.size
                     s_y = 0
                 
-                # Redondear coordenadas también
+                # Redondear coordenadas
                 ang = round(ang, 2)
                 x1 = round(x1, 3)
                 y1 = round(y1, 3)
                 L = round(L, 3)
                 
+                # Función helper para formatear sin .0 innecesario
+                def fmt(val):
+                    if val == int(val):
+                        return str(int(val))
+                    return str(val)
+                
                 # Standard line definition
-                line = f"{ang}, {x1}, {y1}, {s_x}, {s_y}, {L}, -1"
+                line = f"{fmt(ang)}, {fmt(x1)}, {fmt(y1)}, {fmt(s_x)}, {fmt(s_y)}, {fmt(L)}, -1"
                 lines.append(line)
                 count += 1
         
