@@ -174,6 +174,7 @@ OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanatio
             
             # Debug: imprimir estructura de respuesta
             import json as json_module
+            import re
             
             # Extraer texto - manejar diferentes estructuras
             pat_content = None
@@ -194,17 +195,37 @@ OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanatio
             
             # Limpiar markdown si existe
             if '```' in pat_content:
-                import re
-                pat_content = re.sub(r'^```\w*\n?', '', pat_content)
-                pat_content = re.sub(r'\n?```$', '', pat_content)
+                # Extraer contenido entre ``` ```
+                match = re.search(r'```(?:\w*\n)?(.*?)```', pat_content, re.DOTALL)
+                if match:
+                    pat_content = match.group(1).strip()
+                else:
+                    pat_content = re.sub(r'^```\w*\n?', '', pat_content)
+                    pat_content = re.sub(r'\n?```$', '', pat_content)
             
-            # Asegurar que empiece con *
+            # Buscar el inicio del patrón PAT (línea que empieza con *)
             if not pat_content.startswith('*'):
                 lines = pat_content.split('\n')
+                pat_start = -1
                 for i, line in enumerate(lines):
                     if line.strip().startswith('*'):
-                        pat_content = '\n'.join(lines[i:])
+                        pat_start = i
                         break
+                
+                if pat_start >= 0:
+                    # Extraer solo las líneas desde * hasta el final del patrón
+                    pat_lines = []
+                    for line in lines[pat_start:]:
+                        line = line.strip()
+                        # Líneas válidas del PAT: empiezan con *, ;, o número
+                        if line.startswith('*') or line.startswith(';') or (line and line[0].isdigit()):
+                            pat_lines.append(line)
+                        elif not line:
+                            continue
+                        else:
+                            # Si encontramos texto que no es PAT, parar
+                            break
+                    pat_content = '\n'.join(pat_lines)
             
             # Contar líneas de patrón
             num_lines = len([l for l in pat_content.split('\n') if l.strip() and not l.startswith('*') and not l.startswith(';')])
