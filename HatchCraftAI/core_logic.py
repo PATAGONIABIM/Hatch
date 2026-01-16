@@ -4,35 +4,25 @@ import math
 from skimage.morphology import skeletonize
 from collections import defaultdict
 
-# Ángulos válidos extendidos (incluyendo los de ghiaia3)
-VALID_ANGLES = [0, 26.565, 45, 63.435, 90, 116.565, 135, 153.435, 180, 206.565, 225, 243.435, 270, 296.565, 315, 333.435]
+# Solo ángulos principales para evitar problemas de tiling
+# 0-180 son suficientes (180+ son redundantes en la mayoría de casos)
+VALID_ANGLES = [0, 45, 90, 135]
 
-# Shift por ángulo - calculado como (cos(ang), sin(ang)) para ángulos no cardinales
 def get_shift(ang):
-    if ang in [0, 180]:
-        return (1, 1)
-    elif ang in [90, 270]:
-        return (1, 1)
-    elif ang in [45, 135, 225, 315]:
-        return (0.707106781, 0.707106781)
-    elif ang in [26.565, 206.565]:
-        return (0.894427191, 0.4472135955)
-    elif ang in [63.435, 243.435]:
-        return (0.4472135955, 0.894427191)
-    elif ang in [116.565, 296.565]:
-        return (0.4472135955, 0.894427191)
-    elif ang in [153.435, 333.435]:
-        return (0.894427191, 0.4472135955)
-    else:
-        rad = math.radians(ang)
-        return (abs(math.cos(rad)), abs(math.sin(rad)))
+    """Shift uniforme para tiling simple y consistente"""
+    if ang in [45, 135]:
+        return (0.7071067812, 0.7071067812)
+    return (1, 1)
 
 def quantize_angle(ang):
-    """Redondea el ángulo al valor válido más cercano"""
+    """Redondea el ángulo al valor válido más cercano (0-180 range)"""
+    # Normalizar a 0-180 (las líneas son bidireccionales)
+    ang = ang % 180
+    
     best = 0
-    best_diff = 360
+    best_diff = 180
     for valid in VALID_ANGLES:
-        diff = min(abs(ang - valid), abs(ang - valid - 360), abs(ang - valid + 360))
+        diff = min(abs(ang - valid), abs(ang - valid - 180), abs(ang - valid + 180))
         if diff < best_diff:
             best_diff = diff
             best = valid
