@@ -35,20 +35,17 @@ class PatternGenerator:
         
         gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-        # PASO 1: Suavizar para eliminar ruido y texturas
-        blurred = cv2.GaussianBlur(gray, (5, 5), 1.5)
+        # Suavizado ligero para reducir ruido
+        blurred = cv2.GaussianBlur(gray, (3, 3), 0)
         
-        # PASO 2: Detección de bordes con umbrales más altos (menos sensible)
-        edges = cv2.Canny(blurred, 80, 200)
+        # Detección de bordes con umbrales moderados
+        edges = cv2.Canny(blurred, 30, 100)
         
-        # PASO 3: Operaciones morfológicas para limpiar
-        kernel = np.ones((3, 3), np.uint8)
-        # Cerrar pequeños huecos
-        edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
-        # Abrir para eliminar puntos pequeños
-        edges = cv2.morphologyEx(edges, cv2.MORPH_OPEN, np.ones((2, 2), np.uint8))
+        # Dilatar para conectar líneas rotas
+        kernel = np.ones((2, 2), np.uint8)
+        edges = cv2.dilate(edges, kernel, iterations=1)
         
-        # PASO 4: Esqueletizar para adelgazar líneas
+        # Esqueletizar para adelgazar
         if use_skeleton:
             edges = (skeletonize(edges > 0) * 255).astype(np.uint8)
         
@@ -57,19 +54,15 @@ class PatternGenerator:
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # Cada segmento = 1 línea PAT
         pat_lines = []
-        
-        # Aumentar el umbral mínimo de longitud para filtrar ruido
-        MIN_CONTOUR_LEN = 25
-        MIN_SEGMENT_LEN = 0.03
+        MIN_CONTOUR_LEN = 20
+        MIN_SEGMENT_LEN = 0.025
         
         for cnt in contours:
             arc_len = cv2.arcLength(cnt, True)
             if arc_len < MIN_CONTOUR_LEN: continue
             
-            # Usar epsilon más alto para simplificar más
-            approx = cv2.approxPolyDP(cnt, epsilon_factor * 1.5 * arc_len, True)
+            approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
             pts = approx[:, 0, :]
             cv2.polylines(vec_preview, [pts], False, (0,0,0), 1, cv2.LINE_AA)
 
