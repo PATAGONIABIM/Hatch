@@ -240,11 +240,14 @@ class DXFtoPatConverter:
                 valid_angles = [0, 45, 90, 135, 180, 225, 270, 315]
                 ang_q = min(valid_angles, key=lambda a: angle_diff(a, ang))
                 
-                # Normalizar a 0-180 para PAT
+                # Si el ángulo cuantizado está en el rango 180-360, 
+                # intercambiar los puntos para que la línea vaya en la dirección correcta
                 if ang_q >= 180:
                     ang_q = ang_q - 180
+                    # Intercambiar origen: usar el punto final como origen
+                    nx1, ny1, nx2, ny2 = nx2, ny2, nx1, ny1
                 
-                # Origen normalizado
+                # Origen normalizado (ahora es el punto correcto)
                 ox = round(nx1, 6)
                 oy = round(ny1, 6)
                 
