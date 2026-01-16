@@ -25,12 +25,13 @@ with col_ctrl:
     epsilon_val = st.slider("Simplificación Vectorial", 0.001, 0.050, 0.005, format="%.3f")
     
     st.subheader("4. Detección de Bordes (Canny)")
+    blur_size = st.slider("Suavizado (Blur)", 1, 15, 3, step=2, help="Tamaño del kernel de blur (debe ser impar)")
     canny_low = st.slider("Umbral Bajo", 10, 150, 30, help="Umbral mínimo para detección de bordes")
     canny_high = st.slider("Umbral Alto", 50, 300, 100, help="Umbral máximo para detección de bordes")
 
 if uploaded_file:
     gen = PatternGenerator(grid_size)
-    res = gen.process_image(uploaded_file, epsilon_val, closing_sz, mode, do_skeleton, canny_low, canny_high)
+    res = gen.process_image(uploaded_file, epsilon_val, closing_sz, mode, do_skeleton, canny_low, canny_high, blur_size)
     
     if "error" in res:
         st.error(res["error"])
