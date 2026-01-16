@@ -231,8 +231,16 @@ class DXFtoPatConverter:
                 if ang < 0:
                     ang += 360
                 
+                # Cuantizar ángulo al más cercano (manejando wrap-around)
+                def angle_diff(a, b):
+                    """Diferencia mínima entre dos ángulos considerando el wrap-around"""
+                    diff = abs(a - b)
+                    return min(diff, 360 - diff)
+                
                 valid_angles = [0, 45, 90, 135, 180, 225, 270, 315]
-                ang_q = min(valid_angles, key=lambda a: abs(a - ang) if abs(a - ang) <= 22.5 else 360)
+                ang_q = min(valid_angles, key=lambda a: angle_diff(a, ang))
+                
+                # Normalizar a 0-180 para PAT
                 if ang_q >= 180:
                     ang_q = ang_q - 180
                 
