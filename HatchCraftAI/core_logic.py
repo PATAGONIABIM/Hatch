@@ -92,11 +92,11 @@ class DXFtoPatConverter:
     def __init__(self, tile_size=1.0):
         self.tile_size = tile_size
     
-    def convert(self, dxf_file):
+    def convert(self, dxf_file_path):
         """Lee un archivo DXF y genera un archivo PAT"""
         try:
-            # Leer el DXF
-            doc = ezdxf.read(dxf_file)
+            # Leer el DXF - ezdxf.readfile() acepta un path como string
+            doc = ezdxf.readfile(dxf_file_path)
             msp = doc.modelspace()
             
             # Encontrar los límites del dibujo
