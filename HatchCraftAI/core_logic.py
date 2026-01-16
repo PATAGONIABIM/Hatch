@@ -2,13 +2,12 @@ import cv2
 import numpy as np
 import math
 from skimage.morphology import skeletonize
-from collections import defaultdict
 
 # Solo 4 ángulos principales
 VALID_ANGLES = [0, 45, 90, 135]
 
 def quantize_angle(ang):
-    """Redondea el ángulo a 0-180 y luego al válido más cercano"""
+    """Redondea el ángulo a 0-180 y al válido más cercano"""
     ang = ang % 180
     best = 0
     best_diff = 180
@@ -18,13 +17,6 @@ def quantize_angle(ang):
             best_diff = diff
             best = valid
     return best
-
-def get_line_position(x, y, angle):
-    """Retorna (perpendicular_pos, parallel_pos) para un punto dado un ángulo"""
-    ang_rad = math.radians(angle)
-    perp = -x * math.sin(ang_rad) + y * math.cos(ang_rad)
-    para = x * math.cos(ang_rad) + y * math.sin(ang_rad)
-    return perp, para
 
 class PatternGenerator:
     def __init__(self, size=100.0):
@@ -56,15 +48,14 @@ class PatternGenerator:
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # Agrupar segmentos por ángulo Y posición perpendicular (líneas colineales)
-        # Clave: (angulo, perp_pos_redondeada) -> lista de (para_start, para_end, x, y)
-        line_families = defaultdict(list)
-        PERP_TOLERANCE = 0.02  # Tolerancia para considerar líneas como colineales
+        # ENFOQUE SIMPLE: cada segmento = 1 línea PAT con su longitud real
+        pat_lines = []
         
         for cnt in contours:
             arc_len = cv2.arcLength(cnt, True)
-            if arc_len < 15: continue
+            if arc_len < 20: continue
             
+            # Usar epsilon bajo para capturar la forma real
             approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
             pts = approx[:, 0, :]
             cv2.polylines(vec_preview, [pts], True, (0,0,0), 1, cv2.LINE_AA)
@@ -77,84 +68,31 @@ class PatternGenerator:
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
-                if L < 0.02: continue
+                if L < 0.03: continue  # Filtrar segmentos muy cortos
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
                 ang_q = quantize_angle(ang)
                 
-                # Calcular posiciones
-                perp1, para1 = get_line_position(x1, y1, ang_q)
-                perp2, para2 = get_line_position(x2, y2, ang_q)
+                # Origen del segmento
+                ox = round(x1, 4)
+                oy = round(y1, 4)
                 
-                # Ordenar para_start < para_end
-                para_start = min(para1, para2)
-                para_end = max(para1, para2)
-                perp_avg = (perp1 + perp2) / 2
+                # Dash = longitud REAL del segmento
+                dash = round(L, 4)
                 
-                # Agrupar por posición perpendicular redondeada
-                perp_key = round(perp_avg / PERP_TOLERANCE) * PERP_TOLERANCE
-                key = (ang_q, round(perp_key, 4))
+                # Gap = complemento para evitar repetición visible
+                # El patrón se repite cada 1.0 unidades, así que gap = -(1 - dash)
+                gap = round(-(1.0 - L), 4)
                 
-                line_families[key].append({
-                    'para_start': para_start,
-                    'para_end': para_end,
-                    'x': x1,
-                    'y': y1,
-                    'length': L
-                })
-        
-        # Generar líneas PAT
-        pat_lines = []
-        
-        for (angle, perp_pos), segments in sorted(line_families.items()):
-            if not segments:
-                continue
-            
-            # Ordenar segmentos por posición paralela
-            segments = sorted(segments, key=lambda s: s['para_start'])
-            
-            # Usar el primer segmento como origen
-            first = segments[0]
-            ox = round(first['x'], 4)
-            oy = round(first['y'], 4)
-            
-            # Construir secuencia dash-space
-            # Cada segmento es un dash, el espacio entre segmentos es un gap
-            dash_space = []
-            current_pos = first['para_start']
-            
-            for seg in segments:
-                # Gap desde la posición actual hasta el inicio de este segmento
-                gap = seg['para_start'] - current_pos
-                if gap > 0.01 and dash_space:  # Solo si hay gap significativo
-                    dash_space.append(round(-gap, 4))
+                # Shift uniforme para que la línea no se repita en paralelo
+                if ang_q in [45, 135]:
+                    s_x, s_y = 0.7071067812, 0.7071067812
+                else:
+                    s_x, s_y = 1.0, 1.0
                 
-                # Dash = longitud de este segmento
-                dash = seg['para_end'] - seg['para_start']
-                if dash > 0.01:
-                    dash_space.append(round(dash, 4))
-                    current_pos = seg['para_end']
-            
-            if not dash_space:
-                continue
-            
-            # Espacio final para completar el ciclo (si no llega al final del unit cell)
-            # Para que el patrón repita correctamente
-            remaining = 1.0 - (current_pos % 1.0)
-            if remaining > 0.01 and remaining < 0.99:
-                dash_space.append(round(-remaining, 4))
-            
-            # Shift basado en el ángulo
-            if angle in [45, 135]:
-                s_x, s_y = 0.7071067812, 0.7071067812
-            else:
-                s_x, s_y = 1.0, 1.0
-            
-            # Formatear línea PAT
-            dash_str = ",".join(str(v) for v in dash_space)
-            line = f"{angle}, {ox},{oy}, {s_x},{s_y}, {dash_str}"
-            pat_lines.append(line)
+                line = f"{ang_q}, {ox},{oy}, {s_x},{s_y}, {dash},{gap}"
+                pat_lines.append(line)
         
         # Header
         lines = [
@@ -169,5 +107,5 @@ class PatternGenerator:
             "processed_img": binary,
             "vector_img": vec_preview,
             "pat_content": full_content,
-            "stats": f"Patrón generado: {len(pat_lines)} familias de líneas."
+            "stats": f"Patrón generado: {len(pat_lines)} líneas."
         }
