@@ -83,14 +83,27 @@ class PatternGenerator:
                 # Para .pat, el shift define la familia de líneas paralelas.
                 # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
                 
-                # SHIFT FORZADO POSITIVO (Revit rechaza negativos)
-                # Calculamos perpendicular pero tomamos valor absoluto
-                s_x_calc = self.size * math.sin(rad)
-                s_y_calc = self.size * math.cos(rad)
+                # ESTRATEGIA INTELIGENTE DE SHIFT
+                # Revit rechaza negativos, pero abs() destruye la geometría.
+                # Solución: Usar solo el componente DOMINANTE en positivo.
+                #
+                # Para cada ángulo, calculamos perpendicular y elegimos:
+                # - Si más vertical (0-45° o 135-225° o 315-360°): shift en Y
+                # - Si más horizontal (45-135° o 225-315°): shift en X
                 
-                # Forzar positivos con abs() + pequeño offset si es cero
-                s_x = round(abs(s_x_calc) if abs(s_x_calc) > 0.01 else self.size, 3)
-                s_y = round(abs(s_y_calc) if abs(s_y_calc) > 0.01 else self.size, 3)
+                # Perpendicular normalizado
+                perp_x = -math.sin(rad)
+                perp_y = math.cos(rad)
+                
+                # Determinar componente dominante
+                if abs(perp_y) > abs(perp_x):
+                    # Más vertical: shift solo en Y
+                    s_x = 0
+                    s_y = self.size if perp_y > 0 else self.size
+                else:
+                    # Más horizontal: shift solo en X
+                    s_x = self.size if perp_x > 0 else self.size
+                    s_y = 0
                 
                 # Redondear coordenadas también
                 ang = round(ang, 2)
