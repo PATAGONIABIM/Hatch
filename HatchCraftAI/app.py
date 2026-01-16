@@ -33,11 +33,13 @@ with col1:
         st.success(f"✅ Archivo cargado: {uploaded_file.name}")
         
         # Guardar temporalmente el archivo
-        with tempfile.NamedTemporaryFile(delete=False, suffix='.dxf') as tmp:
-            tmp.write(uploaded_file.read())
-            tmp_path = tmp.name
-        
+        tmp_path = None
         try:
+            # Crear archivo temporal
+            with tempfile.NamedTemporaryFile(delete=False, suffix='.dxf', mode='wb') as tmp:
+                tmp.write(uploaded_file.getvalue())
+                tmp_path = tmp.name
+            
             # Convertir
             with st.spinner("🔄 Convirtiendo DXF a PAT..."):
                 converter = DXFtoPatConverter()
@@ -48,9 +50,11 @@ with col1:
             else:
                 st.session_state.result = result
                 st.success(result["stats"])
+        except Exception as e:
+            st.error(f"Error procesando archivo: {str(e)}")
         finally:
             # Limpiar archivo temporal
-            if os.path.exists(tmp_path):
+            if tmp_path and os.path.exists(tmp_path):
                 os.unlink(tmp_path)
 
 with col2:
