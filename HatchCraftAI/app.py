@@ -62,27 +62,25 @@ with col1:
         )
         
         if uploaded_file:
-            st.image(uploaded_file, caption="Imagen cargada", use_container_width=True)
+            # Parámetros de detección (siempre visibles para actualización en tiempo real)
+            st.caption("⚙️ Parámetros de detección")
+            canny_low = st.slider("Canny Low", 10, 200, 50, key="canny_low")
+            canny_high = st.slider("Canny High", 50, 300, 150, key="canny_high")
+            blur_size = st.slider("Blur", 1, 11, 3, 2, key="blur")
+            min_contour = st.slider("Longitud mín. contorno", 5, 100, 20, key="min_cont")
+            epsilon = st.slider("Suavizado", 0.001, 0.05, 0.01, key="epsilon")
             
-            with st.expander("⚙️ Parámetros de detección"):
-                canny_low = st.slider("Canny Low", 10, 200, 50)
-                canny_high = st.slider("Canny High", 50, 300, 150)
-                blur_size = st.slider("Blur", 1, 11, 3, 2)
-                min_contour = st.slider("Longitud mínima de contorno", 5, 100, 20)
-                epsilon = st.slider("Suavizado de líneas", 0.001, 0.05, 0.01)
+            # Procesar automáticamente al cambiar cualquier slider
+            converter = ImageToPatConverter()
+            image_bytes = uploaded_file.getvalue()
+            result = converter.convert(image_bytes, canny_low, canny_high, 
+                                       blur_size, min_contour, epsilon)
             
-            if st.button("🚀 Procesar Imagen", type="primary", use_container_width=True):
-                with st.spinner("🔄 Detectando bordes y generando PAT..."):
-                    converter = ImageToPatConverter()
-                    image_bytes = uploaded_file.getvalue()
-                    result = converter.convert(image_bytes, canny_low, canny_high, 
-                                              blur_size, min_contour, epsilon)
-                
-                if "error" in result:
-                    st.error(result["error"])
-                else:
-                    st.session_state.result = result
-                    st.success(result["stats"])
+            if "error" in result:
+                st.error(result["error"])
+            else:
+                st.session_state.result = result
+                st.caption(result["stats"])
 
 with col2:
     st.subheader("🔲 Resultado")
