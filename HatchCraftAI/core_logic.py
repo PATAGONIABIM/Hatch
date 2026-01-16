@@ -248,13 +248,20 @@ class DXFtoPatConverter:
                 ox = round(nx1, 6)
                 oy = round(ny1, 6)
                 
-                # Delta = tamaño del tile
+                # Delta depende del ángulo
+                # Para líneas H/V: el tile se repite en cuadrícula regular
+                # Para diagonales: ajustar para que el patrón tile correctamente
                 delta_x = round(tile_size, 6)
                 delta_y = round(tile_size, 6)
                 
-                # Dash/gap
+                # Dash/gap - la longitud de la línea y el espacio
                 dash = round(length, 6)
+                # Gap debe ser negativo y = tile_size - length (para que no se repita dentro del mismo tile)
                 gap = round(-(tile_size - length), 6)
+                
+                # Si el gap es mayor o igual a 0, hacer continua la línea
+                if gap >= 0:
+                    gap = -0.001
                 
                 pat_line = f"{ang_q}, {ox},{oy}, {delta_x},{delta_y}, {dash},{gap}"
                 pat_lines.append(pat_line)
@@ -273,7 +280,7 @@ class DXFtoPatConverter:
                 "pat_content": pat_content,
                 "pat_preview": pat_preview,
                 "debug_img": debug_img,
-                "stats": f"✅ Convertido: {len(pat_lines)} líneas (tile={tile_size:.2f})"
+                "stats": f"✅ DXF: {len(lines_data)} segmentos → PAT: {len(pat_lines)} líneas (tile={tile_size:.2f})"
             }
             
         except ezdxf.DXFError as e:
