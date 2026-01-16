@@ -172,8 +172,25 @@ OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanatio
             response.raise_for_status()
             result = response.json()
             
-            # Extraer texto
-            pat_content = result['candidates'][0]['content']['parts'][0]['text'].strip()
+            # Debug: imprimir estructura de respuesta
+            import json as json_module
+            
+            # Extraer texto - manejar diferentes estructuras
+            pat_content = None
+            
+            if 'candidates' in result and len(result['candidates']) > 0:
+                candidate = result['candidates'][0]
+                if 'content' in candidate and 'parts' in candidate['content']:
+                    parts = candidate['content']['parts']
+                    if len(parts) > 0 and 'text' in parts[0]:
+                        pat_content = parts[0]['text'].strip()
+                elif 'text' in candidate:
+                    pat_content = candidate['text'].strip()
+            elif 'text' in result:
+                pat_content = result['text'].strip()
+            
+            if not pat_content:
+                return {"error": f"Respuesta vacía del modelo. Estructura: {json_module.dumps(result, indent=2)[:500]}"}
             
             # Limpiar markdown si existe
             if '```' in pat_content:
@@ -212,5 +229,7 @@ OUTPUT: Return ONLY the PAT file content. Start with *PatternName. No explanatio
             return {"error": f"Error API: {error_msg}"}
         except requests.exceptions.Timeout:
             return {"error": "Timeout - El modelo tardó demasiado. Intenta con una imagen más pequeña."}
+        except KeyError as e:
+            return {"error": f"Error parseando respuesta: {str(e)}"}
         except Exception as e:
             return {"error": f"Error: {str(e)}"}
