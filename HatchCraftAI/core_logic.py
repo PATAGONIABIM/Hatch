@@ -62,11 +62,14 @@ class PatternGenerator:
         
         # Agrupar por ángulo cuantizado y posición
         line_groups = defaultdict(list)
-        position_tolerance = 0.02
+        position_tolerance = 0.05  # Aumentado para reducir fragmentación
+        min_segment_length = 0.03  # Filtrar segmentos muy cortos (ruido)
         
         for cnt in contours:
-            if cv2.arcLength(cnt, True) < 5: continue
-            approx = cv2.approxPolyDP(cnt, epsilon_factor * cv2.arcLength(cnt, True), True)
+            arc_len = cv2.arcLength(cnt, True)
+            if arc_len < 15: continue  # Aumentado para ignorar contornos pequeños
+            
+            approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
             pts = approx[:, 0, :]
             cv2.polylines(vec_preview, [pts], True, (0,0,0), 1, cv2.LINE_AA)
 
@@ -78,7 +81,7 @@ class PatternGenerator:
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
-                if L < 0.01: continue
+                if L < min_segment_length: continue  # Filtrar segmentos cortos
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
@@ -95,7 +98,7 @@ class PatternGenerator:
                 para_pos = x1 * math.cos(ang_rad) + y1 * math.sin(ang_rad)
                 
                 key = (ang_q, round(perp_key, 3))
-                line_groups[key].append((para_pos, para_pos + L, x1, y1))
+                line_groups[key].append((para_pos, para_pos + L, x1, y1, L))  # Guardamos L
         
         # Generar .PAT
         lines = [
@@ -105,6 +108,11 @@ class PatternGenerator:
         
         count = 0
         for (ang, perp_pos), segments in sorted(line_groups.items()):
+            # Filtrar familias con muy pocos segmentos o longitud total corta
+            total_length = sum(seg[4] for seg in segments)
+            if len(segments) < 2 and total_length < 0.1:
+                continue  # Ignorar familias con un solo segmento corto
+            
             segments = sorted(segments, key=lambda s: s[0])
             
             first_seg = segments[0]
@@ -114,22 +122,22 @@ class PatternGenerator:
             dash_space = []
             current_pos = first_seg[0]
             
-            for para_start, para_end, _, _ in segments:
+            for para_start, para_end, _, _, _ in segments:
                 gap = para_start - current_pos
-                if gap > 0.01 and dash_space:
+                if gap > 0.02 and dash_space:  # Aumentado umbral de gap
                     dash_space.append(round(-gap, 4))
                 
                 dash = para_end - para_start
-                if dash > 0.01:
+                if dash > 0.02:  # Aumentado umbral de dash
                     dash_space.append(round(dash, 4))
                     current_pos = para_end
             
-            if not dash_space:
+            if not dash_space or len(dash_space) < 1:
                 continue
             
             # Espacio final
             remaining = 1.0 - (current_pos % 1.0)
-            if 0.01 < remaining < 0.99:
+            if 0.02 < remaining < 0.98:
                 dash_space.append(round(-remaining, 4))
             
             # Obtener shift para este ángulo
