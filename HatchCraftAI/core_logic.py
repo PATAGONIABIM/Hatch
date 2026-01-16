@@ -70,34 +70,24 @@ class PatternGenerator:
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
                 
-                # SHIFT BASADO EN EL EJEMPLO GHIAIA3
-                # Para 0° y 90°: shift = (1, 1)
-                # Para 45°: shift = (0.707, 0.707)
-                # Para otros ángulos: calcular perpendicular
+                # FILTRAR LÍNEAS DIAGONALES
+                # Solo mantener líneas casi horizontales (0°, 180°) o verticales (90°, 270°)
+                tolerance = 15  # grados de tolerancia
+                is_horizontal = (ang < tolerance) or (abs(ang - 180) < tolerance) or (ang > 360 - tolerance)
+                is_vertical = (abs(ang - 90) < tolerance) or (abs(ang - 270) < tolerance)
                 
-                ang_rad = math.radians(ang)
+                if not (is_horizontal or is_vertical):
+                    continue  # Saltar líneas diagonales
                 
-                # Determinar shift basado en ángulos comunes
-                if abs(ang) < 1 or abs(ang - 180) < 1 or abs(ang - 360) < 1:
-                    # Horizontal
-                    s_x = 1
-                    s_y = 1
-                elif abs(ang - 90) < 1 or abs(ang - 270) < 1:
-                    # Vertical
-                    s_x = 1
-                    s_y = 1
-                elif abs(ang - 45) < 5 or abs(ang - 225) < 5:
-                    # Diagonal 45°
-                    s_x = 0.707106781
-                    s_y = 0.707106781
-                elif abs(ang - 135) < 5 or abs(ang - 315) < 5:
-                    # Diagonal 135°
-                    s_x = 0.707106781
-                    s_y = 0.707106781
+                # Normalizar ángulo a valores limpios
+                if is_horizontal:
+                    ang = 0
                 else:
-                    # Otros ángulos: usar vector perpendicular
-                    s_x = round(math.cos(ang_rad + math.pi/2), 6)
-                    s_y = round(math.sin(ang_rad + math.pi/2), 6)
+                    ang = 90
+                
+                # SHIFT UNIFORME (1, 1) como en ghiaia3
+                s_x = 1
+                s_y = 1
                 
                 # Redondear valores
                 ang = round(ang, 2)
