@@ -4,14 +4,12 @@ import math
 from skimage.morphology import skeletonize
 from collections import defaultdict
 
-# Solo 4 ángulos principales para estabilidad
+# Solo 4 ángulos principales
 VALID_ANGLES = [0, 45, 90, 135]
 
 def quantize_angle(ang):
-    """Redondea el ángulo al valor válido más cercano (0-180 range)"""
-    # Normalizar a 0-180 (las líneas son bidireccionales)
+    """Redondea el ángulo a 0-180 y luego al válido más cercano"""
     ang = ang % 180
-    
     best = 0
     best_diff = 180
     for valid in VALID_ANGLES:
@@ -21,17 +19,12 @@ def quantize_angle(ang):
             best = valid
     return best
 
-def get_perpendicular_position(x, y, angle):
-    """Calcula la posición perpendicular de un punto respecto a una línea en el ángulo dado"""
+def get_line_position(x, y, angle):
+    """Retorna (perpendicular_pos, parallel_pos) para un punto dado un ángulo"""
     ang_rad = math.radians(angle)
-    # Vector perpendicular al ángulo: (-sin, cos)
-    return -x * math.sin(ang_rad) + y * math.cos(ang_rad)
-
-def get_parallel_position(x, y, angle):
-    """Calcula la posición paralela (a lo largo) de un punto respecto a una línea en el ángulo dado"""
-    ang_rad = math.radians(angle)
-    # Vector paralelo al ángulo: (cos, sin)
-    return x * math.cos(ang_rad) + y * math.sin(ang_rad)
+    perp = -x * math.sin(ang_rad) + y * math.cos(ang_rad)
+    para = x * math.cos(ang_rad) + y * math.sin(ang_rad)
+    return perp, para
 
 class PatternGenerator:
     def __init__(self, size=100.0):
@@ -63,91 +56,105 @@ class PatternGenerator:
         contours, _ = cv2.findContours(binary, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
         vec_preview = np.ones((side, side, 3), dtype=np.uint8) * 255
         
-        # Agrupar segmentos por ángulo cuantizado
-        angle_groups = defaultdict(list)
+        # Agrupar segmentos por ángulo Y posición perpendicular (líneas colineales)
+        # Clave: (angulo, perp_pos_redondeada) -> lista de (para_start, para_end, x, y)
+        line_families = defaultdict(list)
+        PERP_TOLERANCE = 0.02  # Tolerancia para considerar líneas como colineales
         
         for cnt in contours:
             arc_len = cv2.arcLength(cnt, True)
-            if arc_len < 20: continue
+            if arc_len < 15: continue
             
-            approx = cv2.approxPolyDP(cnt, epsilon_factor * 1.5 * arc_len, True)
+            approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, True)
             pts = approx[:, 0, :]
             cv2.polylines(vec_preview, [pts], True, (0,0,0), 1, cv2.LINE_AA)
 
             for i in range(len(pts)):
                 p1, p2 = pts[i], pts[(i + 1) % len(pts)]
                 
-                # Normalizar a 0-1
                 x1, y1 = p1[0] / side, (side - p1[1]) / side
                 x2, y2 = p2[0] / side, (side - p2[1]) / side
                 
                 dx, dy = x2 - x1, y2 - y1
                 L = math.sqrt(dx**2 + dy**2)
-                if L < 0.03: continue
+                if L < 0.02: continue
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
-                
                 ang_q = quantize_angle(ang)
                 
-                # Calcular posiciones perpendicular y paralela
-                perp_pos = get_perpendicular_position(x1, y1, ang_q)
-                para_pos = get_parallel_position(x1, y1, ang_q)
+                # Calcular posiciones
+                perp1, para1 = get_line_position(x1, y1, ang_q)
+                perp2, para2 = get_line_position(x2, y2, ang_q)
                 
-                # Guardar: (perp_pos, para_start, para_end, x1, y1, L)
-                angle_groups[ang_q].append({
-                    'perp': perp_pos,
-                    'para_start': para_pos,
-                    'para_end': para_pos + L,
+                # Ordenar para_start < para_end
+                para_start = min(para1, para2)
+                para_end = max(para1, para2)
+                perp_avg = (perp1 + perp2) / 2
+                
+                # Agrupar por posición perpendicular redondeada
+                perp_key = round(perp_avg / PERP_TOLERANCE) * PERP_TOLERANCE
+                key = (ang_q, round(perp_key, 4))
+                
+                line_families[key].append({
+                    'para_start': para_start,
+                    'para_end': para_end,
                     'x': x1,
                     'y': y1,
                     'length': L
                 })
         
-        # Generar líneas PAT con familias agrupadas
+        # Generar líneas PAT
         pat_lines = []
         
-        for angle, segments in sorted(angle_groups.items()):
-            if len(segments) < 2:
+        for (angle, perp_pos), segments in sorted(line_families.items()):
+            if not segments:
                 continue
             
-            # Ordenar por posición perpendicular
-            segments = sorted(segments, key=lambda s: s['perp'])
+            # Ordenar segmentos por posición paralela
+            segments = sorted(segments, key=lambda s: s['para_start'])
             
-            # Calcular delta-y (distancia perpendicular típica entre líneas)
-            perp_positions = [s['perp'] for s in segments]
-            if len(perp_positions) >= 2:
-                # Usar la mediana de las diferencias para evitar outliers
-                diffs = [perp_positions[i+1] - perp_positions[i] for i in range(len(perp_positions)-1)]
-                diffs = [d for d in diffs if d > 0.01]  # Filtrar diferencias muy pequeñas
-                if diffs:
-                    delta_y = np.median(diffs)
-                else:
-                    delta_y = 0.1
-            else:
-                delta_y = 0.1
+            # Usar el primer segmento como origen
+            first = segments[0]
+            ox = round(first['x'], 4)
+            oy = round(first['y'], 4)
             
-            # Para cada segmento, crear una línea con dash corto
+            # Construir secuencia dash-space
+            # Cada segmento es un dash, el espacio entre segmentos es un gap
+            dash_space = []
+            current_pos = first['para_start']
+            
             for seg in segments:
-                # Origen del segmento
-                ox = round(seg['x'], 4)
-                oy = round(seg['y'], 4)
+                # Gap desde la posición actual hasta el inicio de este segmento
+                gap = seg['para_start'] - current_pos
+                if gap > 0.01 and dash_space:  # Solo si hay gap significativo
+                    dash_space.append(round(-gap, 4))
                 
-                # Shift: delta-x=0 (sin escalonado), delta-y = espaciado perpendicular
-                # Pero para Revit MODEL type, usamos shift unitario
-                if angle in [45, 135]:
-                    s_x, s_y = 0.7071067812, 0.7071067812
-                else:
-                    s_x, s_y = 1.0, 1.0
-                
-                # Dash: longitud real del segmento (limitada)
-                dash = min(0.1, seg['length'])
-                
-                # Space: para que no se repita inmediatamente, dejamos espacio grande
-                space = -(1.0 - dash)
-                
-                line = f"{angle}, {ox},{oy}, {s_x},{s_y}, {round(dash, 4)},{round(space, 4)}"
-                pat_lines.append(line)
+                # Dash = longitud de este segmento
+                dash = seg['para_end'] - seg['para_start']
+                if dash > 0.01:
+                    dash_space.append(round(dash, 4))
+                    current_pos = seg['para_end']
+            
+            if not dash_space:
+                continue
+            
+            # Espacio final para completar el ciclo (si no llega al final del unit cell)
+            # Para que el patrón repita correctamente
+            remaining = 1.0 - (current_pos % 1.0)
+            if remaining > 0.01 and remaining < 0.99:
+                dash_space.append(round(-remaining, 4))
+            
+            # Shift basado en el ángulo
+            if angle in [45, 135]:
+                s_x, s_y = 0.7071067812, 0.7071067812
+            else:
+                s_x, s_y = 1.0, 1.0
+            
+            # Formatear línea PAT
+            dash_str = ",".join(str(v) for v in dash_space)
+            line = f"{angle}, {ox},{oy}, {s_x},{s_y}, {dash_str}"
+            pat_lines.append(line)
         
         # Header
         lines = [
@@ -162,5 +169,5 @@ class PatternGenerator:
             "processed_img": binary,
             "vector_img": vec_preview,
             "pat_content": full_content,
-            "stats": f"Patrón generado: {len(pat_lines)} líneas en {len(angle_groups)} familias de ángulos."
+            "stats": f"Patrón generado: {len(pat_lines)} familias de líneas."
         }
