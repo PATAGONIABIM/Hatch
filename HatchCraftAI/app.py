@@ -60,27 +60,31 @@ with col1:
 with col2:
     st.subheader("🔲 Resultado")
     
-    # Slider de escala
-    preview_scale = st.slider("🔍 Escala del Preview", 0.1, 10.0, 1.0, 0.1, 
-                              help="Ajusta para ver mejor el patrón")
-    
     if 'result' in st.session_state and st.session_state.result:
         result = st.session_state.result
         
-        # Regenerar preview con la escala seleccionada
-        pat_preview = render_pat_preview(result["pat_content"], tile_count=3, 
-                                         preview_size=600, manual_scale=preview_scale)
+        # Tabs con Debug, Preview y Código
+        tab_debug, tab_preview, tab_code, tab_download = st.tabs([
+            "🔍 Debug DXF", "🔲 Preview PAT", "📄 Código", "📥 Descargar"
+        ])
         
-        # Preview
-        st.image(pat_preview, caption="Preview tileado (3x3)", use_container_width=True)
+        with tab_debug:
+            st.caption("Cómo se interpretan las líneas del DXF (Rojo=0°, Azul=90°)")
+            if "debug_img" in result:
+                st.image(result["debug_img"], use_container_width=True)
+            else:
+                st.info("Sin imagen de debug")
         
-        # Tabs
-        tab1, tab2 = st.tabs(["📄 Código .PAT", "📥 Descargar"])
+        with tab_preview:
+            preview_scale = st.slider("🔍 Escala", 0.1, 10.0, 1.0, 0.1)
+            pat_preview = render_pat_preview(result["pat_content"], tile_count=3, 
+                                             preview_size=600, manual_scale=preview_scale)
+            st.image(pat_preview, caption="Preview tileado (3x3)", use_container_width=True)
         
-        with tab1:
+        with tab_code:
             st.code(result["pat_content"], language="text")
         
-        with tab2:
+        with tab_download:
             st.download_button(
                 "📥 Descargar .PAT para Revit",
                 result["pat_content"],
@@ -90,7 +94,6 @@ with col2:
             )
             st.info("**En Revit:** Manage → Additional Settings → Fill Patterns → Import")
     else:
-        # Placeholder
         empty_img = np.ones((400, 400, 3), dtype=np.uint8) * 240
         st.image(empty_img, caption="El patrón convertido aparecerá aquí")
         st.info("👈 Sube un archivo DXF para convertir")

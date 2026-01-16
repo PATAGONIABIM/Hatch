@@ -9,9 +9,7 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
     
     lines_data = pat_content.strip().replace('\r\n', '\n').split('\n')
     
-    # Primero: encontrar los límites del patrón
-    min_x, min_y = float('inf'), float('inf')
-    max_x, max_y = float('-inf'), float('-inf')
+    # Encontrar límites y segmentos
     tile_size = 1.0
     segments = []
     
@@ -35,20 +33,6 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
             if len(parts) > 5:
                 dash_pattern = [float(p) for p in parts[5:] if p.strip()]
             
-            # Calcular punto final del segmento
-            ang_rad = math.radians(angle)
-            dir_x = math.cos(ang_rad)
-            dir_y = math.sin(ang_rad)
-            
-            seg_length = abs(dash_pattern[0]) if dash_pattern else dx
-            ex = ox + dir_x * seg_length
-            ey = oy + dir_y * seg_length
-            
-            min_x = min(min_x, ox, ex)
-            min_y = min(min_y, oy, ey)
-            max_x = max(max_x, ox, ex)
-            max_y = max(max_y, oy, ey)
-            
             tile_size = max(tile_size, dx, dy)
             
             segments.append({
@@ -63,7 +47,7 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
     if not segments:
         return img
     
-    # Calcular escala basada en el tamaño del tile
+    # Escala basada en tile_size y manual_scale
     pattern_size = tile_size * tile_count
     scale = (preview_size / pattern_size) * manual_scale
     
@@ -75,7 +59,6 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
         
         for tile_x in range(tile_count):
             for tile_y in range(tile_count):
-                # Posición del segmento en este tile
                 base_x = (seg['ox'] + tile_x * seg['dx']) * scale
                 base_y = preview_size - (seg['oy'] + tile_y * seg['dy']) * scale
                 
@@ -88,11 +71,9 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
                             y1 = int(base_y - dir_y * pos)
                             x2 = int(base_x + dir_x * (pos + length))
                             y2 = int(base_y - dir_y * (pos + length))
-                            # Solo dibujar si está dentro del canvas
                             cv2.line(img, (x1, y1), (x2, y2), (0, 0, 0), 1, cv2.LINE_AA)
                         pos += length
                 else:
-                    # Línea continua
                     length = tile_size * scale * 0.5
                     x1 = int(base_x)
                     y1 = int(base_y)
@@ -110,8 +91,65 @@ def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale
     return img
 
 
+def render_dxf_debug(lines_data, min_x, min_y, tile_size, preview_size=500):
+    """Renderiza una vista de debug del DXF mostrando los segmentos detectados"""
+    img = np.ones((preview_size, preview_size, 3), dtype=np.uint8) * 255
+    
+    if not lines_data or tile_size == 0:
+        return img
+    
+    # Escala para que el tile quepa en el preview
+    scale = preview_size / tile_size * 0.9
+    offset = preview_size * 0.05
+    
+    # Colores para diferentes ángulos
+    colors = {
+        0: (255, 0, 0),    # Rojo - horizontal
+        90: (0, 0, 255),   # Azul - vertical
+        45: (0, 255, 0),   # Verde - diagonal
+        135: (255, 0, 255) # Magenta - diagonal inversa
+    }
+    
+    for x1, y1, x2, y2 in lines_data:
+        # Normalizar al origen
+        nx1 = (x1 - min_x) * scale + offset
+        ny1 = preview_size - ((y1 - min_y) * scale + offset)
+        nx2 = (x2 - min_x) * scale + offset
+        ny2 = preview_size - ((y2 - min_y) * scale + offset)
+        
+        # Determinar ángulo para color
+        dx = x2 - x1
+        dy = y2 - y1
+        ang = math.degrees(math.atan2(dy, dx))
+        if ang < 0:
+            ang += 360
+        if ang >= 180:
+            ang -= 180
+        
+        # Color según ángulo aproximado
+        if abs(ang - 0) < 10 or abs(ang - 180) < 10:
+            color = colors[0]
+        elif abs(ang - 90) < 10:
+            color = colors[90]
+        elif abs(ang - 45) < 10:
+            color = colors[45]
+        elif abs(ang - 135) < 10:
+            color = colors[135]
+        else:
+            color = (100, 100, 100)
+        
+        cv2.line(img, (int(nx1), int(ny1)), (int(nx2), int(ny2)), color, 2, cv2.LINE_AA)
+    
+    # Dibujar borde del tile
+    cv2.rectangle(img, (int(offset), int(offset)), 
+                  (int(offset + tile_size * scale), int(preview_size - offset - tile_size * scale)), 
+                  (150, 150, 150), 1)
+    
+    return img
+
+
 class DXFtoPatConverter:
-    """Convierte archivos DXF de AutoCAD a formato PAT - UNA LÍNEA PAT POR SEGMENTO"""
+    """Convierte archivos DXF de AutoCAD a formato PAT"""
     
     def __init__(self):
         pass
@@ -160,7 +198,7 @@ class DXFtoPatConverter:
             if not lines_data:
                 return {"error": "No se encontraron líneas en el archivo DXF"}
             
-            # Calcular el tamaño del tile (dimensión del dibujo)
+            # Tamaño del tile
             width = max_x - min_x
             height = max_y - min_y
             tile_size = max(width, height)
@@ -168,41 +206,45 @@ class DXFtoPatConverter:
             if tile_size == 0:
                 return {"error": "El dibujo tiene tamaño cero"}
             
-            # Generar UNA línea PAT por cada segmento del DXF
+            # Generar imagen de debug
+            debug_img = render_dxf_debug(lines_data, min_x, min_y, tile_size)
+            
+            # Generar líneas PAT - NORMALIZANDO AL ORIGEN
             pat_lines = []
             
             for x1, y1, x2, y2 in lines_data:
-                dx = x2 - x1
-                dy = y2 - y1
+                # NORMALIZAR coordenadas al origen (0,0)
+                nx1 = x1 - min_x
+                ny1 = y1 - min_y
+                nx2 = x2 - min_x
+                ny2 = y2 - min_y
+                
+                dx = nx2 - nx1
+                dy = ny2 - ny1
                 length = math.sqrt(dx**2 + dy**2)
                 
                 if length < 0.001:
                     continue
                 
-                # Calcular ángulo (0-360)
+                # Ángulo
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0:
                     ang += 360
                 
-                # Redondear ángulo a los válidos (0, 45, 90, 135, 180, etc.)
                 valid_angles = [0, 45, 90, 135, 180, 225, 270, 315]
                 ang_q = min(valid_angles, key=lambda a: abs(a - ang) if abs(a - ang) <= 22.5 else 360)
-                if ang_q == 360:
-                    ang_q = 0
-                # Normalizar a 0-180 para PAT
                 if ang_q >= 180:
                     ang_q = ang_q - 180
                 
-                # Origen = punto de inicio del segmento
-                ox = round(x1, 6)
-                oy = round(y1, 6)
+                # Origen normalizado
+                ox = round(nx1, 6)
+                oy = round(ny1, 6)
                 
-                # Delta = tamaño del tile (para que el patrón se repita)
+                # Delta = tamaño del tile
                 delta_x = round(tile_size, 6)
                 delta_y = round(tile_size, 6)
                 
-                # Dash = longitud del segmento
-                # Gap = negativo del complemento para que no se repita en el mismo tile
+                # Dash/gap
                 dash = round(length, 6)
                 gap = round(-(tile_size - length), 6)
                 
@@ -222,7 +264,8 @@ class DXFtoPatConverter:
             return {
                 "pat_content": pat_content,
                 "pat_preview": pat_preview,
-                "stats": f"✅ Convertido: {len(pat_lines)} líneas desde DXF (tile={tile_size:.2f})"
+                "debug_img": debug_img,
+                "stats": f"✅ Convertido: {len(pat_lines)} líneas (tile={tile_size:.2f})"
             }
             
         except ezdxf.DXFError as e:
