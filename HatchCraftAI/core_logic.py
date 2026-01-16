@@ -63,31 +63,29 @@ class PatternGenerator:
             for i in range(len(pts)):
                 p1, p2 = pts[i], pts[(i + 1) % len(pts)]
                 
-                # Coordenadas relativas
-                x1, y1 = p1[0] * scale, (side - p1[1]) * scale
-                x2, y2 = p2[0] * scale, (side - p2[1]) * scale
+                # Coordenadas relativas - NORMALIZAR AL ORIGEN
+                # En .pat, el origen define DÓNDE empieza la familia de líneas.
+                # Para tiling correcto, todas deben tener origen cerca de (0,0)
+                # y el dash/space define dónde aparece cada segmento.
                 
-                dx, dy = x2 - x1, y2 - y1
+                # Calcular posición original
+                x1_orig, y1_orig = p1[0] * scale, (side - p1[1]) * scale
+                x2_orig, y2_orig = p2[0] * scale, (side - p2[1]) * scale
+                
+                dx, dy = x2_orig - x1_orig, y2_orig - y1_orig
                 L = math.sqrt(dx**2 + dy**2)
                 if L < 0.001: continue
                 
                 ang = math.degrees(math.atan2(dy, dx))
                 if ang < 0: ang += 360
-                rad = math.radians(ang)
 
-                # SHIFT PERPENDICULAR CORRECTO
-                # Vector perpendicular (rotación +90°):
-                # Si línea va en dirección (cos θ, sin θ)
-                # Perpendicular es (-sin θ, cos θ)
-                # 
-                # Para .pat, el shift define la familia de líneas paralelas.
-                # Debe ser perpendicular a la línea, con magnitud = tamaño del tile.
-                
                 # SHIFT UNIFORME OBLIGATORIO
-                # Revit REQUIERE que TODAS las líneas tengan el mismo shift.
-                # El shift debe ser igual al tamaño del tile para tiling correcto.
                 s_x = 0
-                s_y = self.size  # Usar el tamaño del tile, no 1
+                s_y = self.size
+                
+                # Usar coordenadas originales normalizadas al módulo del tile
+                x1 = x1_orig % self.size
+                y1 = y1_orig % self.size
                 
                 # Redondear coordenadas
                 ang = round(ang, 2)
