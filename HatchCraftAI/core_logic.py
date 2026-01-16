@@ -237,7 +237,9 @@ class DXFtoPatConverter:
                     diff = abs(a - b)
                     return min(diff, 360 - diff)
                 
-                valid_angles = [0, 45, 90, 135, 180, 225, 270, 315]
+                # Ángulos cada 15° para mayor precisión en patrones orgánicos
+                valid_angles = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165,
+                               180, 195, 210, 225, 240, 255, 270, 285, 300, 315, 330, 345]
                 ang_q = min(valid_angles, key=lambda a: angle_diff(a, ang))
                 
                 # Si el ángulo cuantizado está en el rango 180-360, 
@@ -288,5 +290,153 @@ class DXFtoPatConverter:
             
         except ezdxf.DXFError as e:
             return {"error": f"Error leyendo DXF: {str(e)}"}
+        except Exception as e:
+            return {"error": f"Error: {str(e)}"}
+
+
+class ImageToPatConverter:
+    """Convierte imágenes a PAT usando Canny edge detection y skeletonization"""
+    
+    def __init__(self):
+        pass
+    
+    def convert(self, image_bytes, canny_low=50, canny_high=150, blur_size=3, 
+                min_contour_len=20, epsilon_factor=0.01):
+        """Procesa una imagen y genera un archivo PAT"""
+        try:
+            # Decodificar imagen
+            nparr = np.frombuffer(image_bytes, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            if img is None:
+                return {"error": "Error al cargar la imagen"}
+            
+            # Hacer cuadrada y obtener dimensiones
+            h_orig, w_orig = img.shape[:2]
+            side = min(h_orig, w_orig)
+            start_x = (w_orig - side) // 2
+            start_y = (h_orig - side) // 2
+            img = img[start_y:start_y+side, start_x:start_x+side]
+            
+            # Convertir a escala de grises
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            
+            # Aplicar blur
+            if blur_size > 1:
+                blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1
+                blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
+            else:
+                blurred = gray
+            
+            # Detectar bordes con Canny
+            edges = cv2.Canny(blurred, canny_low, canny_high)
+            
+            # Dilatar y adelgazar (skeletonize)
+            kernel = np.ones((2, 2), np.uint8)
+            edges = cv2.dilate(edges, kernel, iterations=1)
+            
+            # Skeletonize usando morphological operations
+            skeleton = np.zeros(edges.shape, np.uint8)
+            element = cv2.getStructuringElement(cv2.MORPH_CROSS, (3, 3))
+            temp = edges.copy()
+            while True:
+                eroded = cv2.erode(temp, element)
+                dilated = cv2.dilate(eroded, element)
+                diff = cv2.subtract(temp, dilated)
+                skeleton = cv2.bitwise_or(skeleton, diff)
+                temp = eroded.copy()
+                if cv2.countNonZero(temp) == 0:
+                    break
+            
+            # Si el skeleton está vacío, usar edges directamente
+            if cv2.countNonZero(skeleton) == 0:
+                skeleton = edges
+            
+            # Encontrar contornos
+            contours, _ = cv2.findContours(skeleton, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+            
+            # Imagen de debug
+            debug_img = np.ones((side, side, 3), dtype=np.uint8) * 255
+            
+            # Generar líneas PAT
+            pat_lines = []
+            tile_size = 1.0  # Normalizado
+            
+            # Ángulos válidos cada 15°
+            valid_angles = [0, 15, 30, 45, 60, 75, 90, 105, 120, 135, 150, 165]
+            
+            def angle_diff(a, b):
+                diff = abs(a - b)
+                return min(diff, 360 - diff)
+            
+            for cnt in contours:
+                arc_len = cv2.arcLength(cnt, False)
+                if arc_len < min_contour_len:
+                    continue
+                
+                # Aproximar polilínea
+                approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, False)
+                pts = approx[:, 0, :]
+                
+                # Dibujar en debug
+                cv2.polylines(debug_img, [pts], False, (0, 0, 0), 1, cv2.LINE_AA)
+                
+                # Convertir segmentos a líneas PAT
+                for i in range(len(pts) - 1):
+                    p1, p2 = pts[i], pts[i + 1]
+                    
+                    # Normalizar a 0-1
+                    x1, y1 = p1[0] / side, 1 - (p1[1] / side)
+                    x2, y2 = p2[0] / side, 1 - (p2[1] / side)
+                    
+                    dx = x2 - x1
+                    dy = y2 - y1
+                    length = math.sqrt(dx**2 + dy**2)
+                    
+                    if length < 0.01:
+                        continue
+                    
+                    # Ángulo
+                    ang = math.degrees(math.atan2(dy, dx))
+                    if ang < 0:
+                        ang += 360
+                    
+                    ang_q = min(valid_angles + [a + 180 for a in valid_angles], 
+                               key=lambda a: angle_diff(a, ang))
+                    
+                    # Normalizar a 0-180
+                    if ang_q >= 180:
+                        ang_q -= 180
+                        x1, y1, x2, y2 = x2, y2, x1, y1
+                    
+                    ox = round(x1, 4)
+                    oy = round(y1, 4)
+                    dash = round(length, 4)
+                    gap = round(-(tile_size - length), 4)
+                    if gap >= 0:
+                        gap = -0.001
+                    
+                    pat_line = f"{ang_q}, {ox},{oy}, {tile_size},{tile_size}, {dash},{gap}"
+                    pat_lines.append(pat_line)
+            
+            if not pat_lines:
+                return {"error": "No se detectaron líneas en la imagen"}
+            
+            # Construir PAT
+            header = [
+                "*Image_Pattern, Generated from Image",
+                ";%TYPE=MODEL"
+            ]
+            header.extend(pat_lines)
+            pat_content = "\r\n".join(header) + "\r\n"
+            
+            pat_preview = render_pat_preview(pat_content)
+            
+            return {
+                "pat_content": pat_content,
+                "pat_preview": pat_preview,
+                "debug_img": debug_img,
+                "stats": f"✅ Imagen: {len(contours)} contornos → PAT: {len(pat_lines)} líneas"
+            }
+            
         except Exception as e:
             return {"error": f"Error: {str(e)}"}

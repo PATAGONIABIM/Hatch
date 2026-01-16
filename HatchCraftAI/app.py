@@ -1,61 +1,88 @@
 import streamlit as st
 import numpy as np
-from core_logic import DXFtoPatConverter, render_pat_preview
+from core_logic import DXFtoPatConverter, ImageToPatConverter, render_pat_preview
 import tempfile
 import os
 
-st.set_page_config(page_title="HatchCraft - DXF to PAT", layout="wide")
+st.set_page_config(page_title="HatchCraft - Pattern Generator", layout="wide")
 
-st.title("HatchCraft DXF → PAT 📐")
-st.markdown("### Convierte dibujos de AutoCAD a patrones para Revit")
+st.title("HatchCraft 📐✨")
+st.markdown("### Convierte dibujos y imágenes a patrones para Revit")
 
-st.info("""
-**Instrucciones:**
-1. Dibuja tu patrón en **AutoCAD** usando solo **líneas** (LINE o POLYLINE)
-2. Guarda como **DXF** (File → Save As → DXF)
-3. Sube el archivo DXF aquí
-4. Descarga el archivo .PAT para Revit
-
-**Tip:** Dibuja el patrón en un cuadrado de 1x1 unidades para mejor escala.
-""")
+# Selector de modo
+mode = st.radio("Selecciona el modo:", 
+                ["📁 DXF (AutoCAD)", "🖼️ Imagen (Canny/Skeleton)"], 
+                horizontal=True)
 
 col1, col2 = st.columns([1, 1])
 
 with col1:
-    st.subheader("📁 Subir DXF")
-    
-    uploaded_file = st.file_uploader(
-        "Arrastra tu archivo DXF aquí",
-        type=["dxf"]
-    )
-    
-    if uploaded_file:
-        st.success(f"✅ Archivo cargado: {uploaded_file.name}")
+    if mode == "📁 DXF (AutoCAD)":
+        st.subheader("📁 Subir DXF")
+        st.caption("Dibuja líneas en AutoCAD y guarda como DXF")
         
-        # Guardar temporalmente el archivo
-        tmp_path = None
-        try:
-            # Crear archivo temporal
-            with tempfile.NamedTemporaryFile(delete=False, suffix='.dxf', mode='wb') as tmp:
-                tmp.write(uploaded_file.getvalue())
-                tmp_path = tmp.name
+        uploaded_file = st.file_uploader(
+            "Arrastra tu archivo DXF aquí",
+            type=["dxf"],
+            key="dxf_uploader"
+        )
+        
+        if uploaded_file:
+            st.success(f"✅ {uploaded_file.name}")
             
-            # Convertir
-            with st.spinner("🔄 Convirtiendo DXF a PAT..."):
-                converter = DXFtoPatConverter()
-                result = converter.convert(tmp_path)
+            tmp_path = None
+            try:
+                with tempfile.NamedTemporaryFile(delete=False, suffix='.dxf', mode='wb') as tmp:
+                    tmp.write(uploaded_file.getvalue())
+                    tmp_path = tmp.name
+                
+                with st.spinner("🔄 Convirtiendo DXF a PAT..."):
+                    converter = DXFtoPatConverter()
+                    result = converter.convert(tmp_path)
+                
+                if "error" in result:
+                    st.error(result["error"])
+                else:
+                    st.session_state.result = result
+                    st.success(result["stats"])
+            except Exception as e:
+                st.error(f"Error: {str(e)}")
+            finally:
+                if tmp_path and os.path.exists(tmp_path):
+                    os.unlink(tmp_path)
+    
+    else:  # Modo Imagen
+        st.subheader("🖼️ Subir Imagen")
+        st.caption("Para patrones orgánicos (piedra, texturas naturales)")
+        
+        uploaded_file = st.file_uploader(
+            "Arrastra una imagen del patrón",
+            type=["png", "jpg", "jpeg"],
+            key="img_uploader"
+        )
+        
+        if uploaded_file:
+            st.image(uploaded_file, caption="Imagen cargada", use_container_width=True)
             
-            if "error" in result:
-                st.error(result["error"])
-            else:
-                st.session_state.result = result
-                st.success(result["stats"])
-        except Exception as e:
-            st.error(f"Error procesando archivo: {str(e)}")
-        finally:
-            # Limpiar archivo temporal
-            if tmp_path and os.path.exists(tmp_path):
-                os.unlink(tmp_path)
+            with st.expander("⚙️ Parámetros de detección"):
+                canny_low = st.slider("Canny Low", 10, 200, 50)
+                canny_high = st.slider("Canny High", 50, 300, 150)
+                blur_size = st.slider("Blur", 1, 11, 3, 2)
+                min_contour = st.slider("Longitud mínima de contorno", 5, 100, 20)
+                epsilon = st.slider("Suavizado de líneas", 0.001, 0.05, 0.01)
+            
+            if st.button("🚀 Procesar Imagen", type="primary", use_container_width=True):
+                with st.spinner("🔄 Detectando bordes y generando PAT..."):
+                    converter = ImageToPatConverter()
+                    image_bytes = uploaded_file.getvalue()
+                    result = converter.convert(image_bytes, canny_low, canny_high, 
+                                              blur_size, min_contour, epsilon)
+                
+                if "error" in result:
+                    st.error(result["error"])
+                else:
+                    st.session_state.result = result
+                    st.success(result["stats"])
 
 with col2:
     st.subheader("🔲 Resultado")
@@ -63,13 +90,11 @@ with col2:
     if 'result' in st.session_state and st.session_state.result:
         result = st.session_state.result
         
-        # Tabs con Debug, Preview y Código
         tab_debug, tab_preview, tab_code, tab_download = st.tabs([
-            "🔍 Debug DXF", "🔲 Preview PAT", "📄 Código", "📥 Descargar"
+            "🔍 Debug", "🔲 Preview", "📄 Código", "📥 Descargar"
         ])
         
         with tab_debug:
-            st.caption("Cómo se interpretan las líneas del DXF (Rojo=0°, Azul=90°)")
             if "debug_img" in result:
                 st.image(result["debug_img"], use_container_width=True)
             else:
@@ -88,25 +113,19 @@ with col2:
             st.download_button(
                 "📥 Descargar .PAT para Revit",
                 result["pat_content"],
-                "HatchCraft_DXF.pat",
+                "HatchCraft.pat",
                 "text/plain",
                 use_container_width=True
             )
             st.info("**En Revit:** Manage → Additional Settings → Fill Patterns → Import")
     else:
         empty_img = np.ones((400, 400, 3), dtype=np.uint8) * 240
-        st.image(empty_img, caption="El patrón convertido aparecerá aquí")
-        st.info("👈 Sube un archivo DXF para convertir")
+        st.image(empty_img, caption="El patrón aparecerá aquí")
+        st.info("👈 Sube un archivo para comenzar")
 
-# Footer
 st.divider()
 st.markdown("""
-**Formatos soportados:**
-- Entidades LINE
-- Entidades LWPOLYLINE (polylines)
-- Coordenadas en cualquier unidad (se normalizan automáticamente)
-
-**Limitaciones:**
-- Solo líneas rectas (no arcos, círculos o splines)
-- Ángulos se redondean a 0°, 45°, 90° o 135°
+**Modos disponibles:**
+- **DXF**: Dibuja en AutoCAD con líneas precisas. Ángulos cada 15°.
+- **Imagen**: Detecta bordes automáticamente. Ideal para texturas orgánicas.
 """)
