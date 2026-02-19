@@ -1,6 +1,8 @@
 streamlit
 opencv-python-headless
 numpy
+ezdxf
+
 requests
 Pillow
 ezdxf

@@ -53,7 +53,7 @@ with col1:
     
     else:  # Modo Imagen
         st.subheader("🖼️ Subir Imagen")
-        st.caption("Para patrones orgánicos (piedra, texturas naturales)")
+        st.caption("Detecta bordes y líneas a partir de imágenes")
         
         uploaded_file = st.file_uploader(
             "Arrastra una imagen del patrón",
@@ -62,19 +62,37 @@ with col1:
         )
         
         if uploaded_file:
-            # Parámetros de detección (siempre visibles para actualización en tiempo real)
-            st.caption("⚙️ Parámetros de detección")
-            canny_low = st.slider("Canny Low", 10, 200, 50, key="canny_low")
-            canny_high = st.slider("Canny High", 50, 300, 150, key="canny_high")
-            blur_size = st.slider("Blur", 1, 11, 3, 2, key="blur")
-            min_contour = st.slider("Longitud mín. contorno", 5, 100, 20, key="min_cont")
-            epsilon = st.slider("Suavizado", 0.001, 0.05, 0.01, key="epsilon")
+            st.caption("⚙️ Modo de Detección")
+            detect_method = st.radio(
+                "Elige el algoritmo:", 
+                ["📏 Líneas Rectas (Hough - Ideal para geometría, baldosas)", 
+                 "🌿 Formas Orgánicas (Contornos - Ideal para piedra, texturas)"],
+                label_visibility="collapsed"
+            )
+            
+            st.caption("⚙️ Parámetros de visión")
+            col_s1, col_s2 = st.columns(2)
+            
+            with col_s1:
+                canny_low = st.slider("Canny Low (Bordes)", 10, 200, 50, key="canny_low")
+                canny_high = st.slider("Canny High", 50, 300, 150, key="canny_high")
+                blur_size = st.slider("Desenfoque (Limpiar ruido)", 1, 11, 3, 2, key="blur")
+                
+            with col_s2:
+                if "Rectas" in detect_method:
+                    p1 = st.slider("Longitud mín. de línea", 5, 100, 20, key="hough_min")
+                    p2 = st.slider("Unir huecos en líneas (Gap)", 1, 50, 5, key="hough_gap")
+                    method_key = "hough"
+                else:
+                    p1 = st.slider("Longitud mín. contorno", 5, 100, 20, key="cont_min")
+                    p2 = st.slider("Suavizado de curvas", 0.001, 0.05, 0.005, format="%.3f", key="cont_eps")
+                    method_key = "contour"
             
             # Procesar automáticamente al cambiar cualquier slider
             converter = ImageToPatConverter()
             image_bytes = uploaded_file.getvalue()
-            result = converter.convert(image_bytes, canny_low, canny_high, 
-                                       blur_size, min_contour, epsilon)
+            result = converter.convert(image_bytes, method=method_key, canny_low=canny_low, canny_high=canny_high, 
+                                       blur_size=blur_size, param1=p1, param2=p2)
             
             if "error" in result:
                 st.error(result["error"])
