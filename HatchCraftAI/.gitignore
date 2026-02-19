@@ -1,0 +1,16 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.env
+
+# App specific generated files and inputs
+*.pat
+*.dxf
+*.bak
+*.jpg
+*.png
