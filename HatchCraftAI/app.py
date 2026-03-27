@@ -99,6 +99,9 @@ with col1:
                         adaptive_c = st.slider("Constante C", 0, 20, 2, key="adap_c")
                 else:
                     adaptive_block, adaptive_c = 11, 2
+                
+                dedup_threshold = st.slider("🚫 Filtro líneas dobles (px)", 0, 30, 8, 1, key="dedup",
+                                           help="Distancia mínima entre líneas para NO considerarlas duplicadas")
             
             # ── Parámetros principales ──
             st.caption("⚙️ Parámetros de visión")
@@ -135,7 +138,8 @@ with col1:
                 use_clahe=use_clahe, clahe_clip=clahe_clip,
                 use_adaptive=use_adaptive, adaptive_block=adaptive_block, adaptive_c=adaptive_c,
                 use_skeleton=use_skeleton,
-                merge_segments=merge_segments
+                merge_segments=merge_segments,
+                dedup_threshold=float(dedup_threshold)
             )
             
             if "error" in result:

@@ -382,13 +382,52 @@ class ImageToPatConverter:
         return merged_lines
 
     @staticmethod
-    def _is_duplicate(nx1, ny1, nx2, ny2, unique_lines, threshold=2.5):
-        """Filtra líneas dobles (ida y vuelta del contorno)"""
+    def _is_duplicate(x1, y1, x2, y2, unique_lines, threshold=8.0):
+        """Filtra líneas dobles usando midpoint + ángulo.
+        Más robusto que endpoint-only: detecta paralelas cercanas
+        incluso si los extremos no coinciden exactamente.
+        """
+        mx = (x1 + x2) / 2.0
+        my = (y1 + y2) / 2.0
+        ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
+        if ang < 0:
+            ang += 180
+        if ang >= 180:
+            ang -= 180
+        seg_len = math.hypot(x2 - x1, y2 - y1)
+        
         for (ux1, uy1, ux2, uy2) in unique_lines:
-            d1 = math.hypot(nx1-ux1, ny1-uy1) + math.hypot(nx2-ux2, ny2-uy2)
-            d2 = math.hypot(nx1-ux2, ny1-uy2) + math.hypot(nx2-ux1, ny2-uy1)
-            if min(d1, d2) / 2.0 < threshold:
+            umx = (ux1 + ux2) / 2.0
+            umy = (uy1 + uy2) / 2.0
+            uang = math.degrees(math.atan2(uy2 - uy1, ux2 - ux1))
+            if uang < 0:
+                uang += 180
+            if uang >= 180:
+                uang -= 180
+            u_len = math.hypot(ux2 - ux1, uy2 - uy1)
+            
+            # Ángulo similar (tolerancia 10°)
+            ang_diff = abs(ang - uang)
+            if ang_diff > 10 and (180 - ang_diff) > 10:
+                continue
+            
+            # Longitud similar (dentro de 50%)
+            if max(seg_len, u_len) > 0:
+                len_ratio = min(seg_len, u_len) / max(seg_len, u_len)
+                if len_ratio < 0.5:
+                    continue
+            
+            # Midpoint cercano
+            mid_dist = math.hypot(mx - umx, my - umy)
+            if mid_dist < threshold:
                 return True
+            
+            # Fallback: endpoints cercanos (para segmentos cortos)
+            d1 = math.hypot(x1 - ux1, y1 - uy1) + math.hypot(x2 - ux2, y2 - uy2)
+            d2 = math.hypot(x1 - ux2, y1 - uy2) + math.hypot(x2 - ux1, y2 - uy1)
+            if min(d1, d2) / 2.0 < threshold * 0.6:
+                return True
+        
         return False
     
     # ── Main ─────────────────────────────────────────────────
@@ -398,7 +437,8 @@ class ImageToPatConverter:
                 use_clahe=False, clahe_clip=2.0,
                 use_adaptive=False, adaptive_block=11, adaptive_c=2,
                 use_skeleton=False,
-                merge_segments=False, merge_angle_tol=5.0, merge_gap_tol=10.0):
+                merge_segments=False, merge_angle_tol=5.0, merge_gap_tol=10.0,
+                dedup_threshold=8.0):
         """
         Pipeline mejorado de imagen a PAT.
         
@@ -412,6 +452,7 @@ class ImageToPatConverter:
           merge_segments  – Une segmentos colineales cercanos
           merge_angle_tol – Tolerancia angular para merge (grados)
           merge_gap_tol   – Gap máximo para merge (pixels)
+          dedup_threshold – Distancia (px) para considerar dos líneas como duplicadas
         """
         try:
             # ── Decodificar imagen ──
@@ -540,9 +581,8 @@ class ImageToPatConverter:
             tile_size = 1.0
             
             for x1, y1, x2, y2 in raw_lines:
-                if method == "contour":
-                    if self._is_duplicate(x1, y1, x2, y2, unique_lines):
-                        continue
+                if self._is_duplicate(x1, y1, x2, y2, unique_lines, threshold=dedup_threshold):
+                    continue
                 unique_lines.append((x1, y1, x2, y2))
                 
                 # Dibujar en debug con color según ángulo
