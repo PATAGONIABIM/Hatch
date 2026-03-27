@@ -637,14 +637,48 @@ class ImageToPatConverter:
                     gap_tol=merge_gap_tol
                 )
 
-            # ── 7. Filtrado y generación PAT ──
+            # ── 7. Filtrado con dedup rápido (angle-bucketed) ──
+            # Pre-computar ángulos una vez para todas las líneas
+            from collections import defaultdict
+            angle_bucket_size = 5  # grados por bucket
+            buckets = defaultdict(list)  # bucket_id -> list of (x1,y1,x2,y2,mx,my)
+            
             unique_lines = []
             pat_lines = []
             tile_size = 1.0
             
             for x1, y1, x2, y2 in raw_lines:
-                if self._is_duplicate(x1, y1, x2, y2, unique_lines, threshold=dedup_threshold):
+                ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
+                if ang < 0:
+                    ang += 180
+                if ang >= 180:
+                    ang -= 180
+                bucket_id = int(ang / angle_bucket_size)
+                mx = (x1 + x2) / 2.0
+                my = (y1 + y2) / 2.0
+                
+                # Solo comparar con líneas del mismo bucket y adyacentes
+                is_dup = False
+                for bid in (bucket_id - 1, bucket_id, bucket_id + 1):
+                    # Wrap around para 0° y 180°
+                    actual_bid = bid % (180 // angle_bucket_size)
+                    for (ux1, uy1, ux2, uy2, umx, umy) in buckets.get(actual_bid, []):
+                        # Filtro rápido: distancia de midpoints
+                        if abs(mx - umx) > dedup_threshold * 3 and abs(my - umy) > dedup_threshold * 3:
+                            continue
+                        # Distancia perpendicular
+                        perp_dist = self._point_to_line_dist(mx, my, ux1, uy1, ux2, uy2)
+                        if perp_dist < dedup_threshold:
+                            if self._segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
+                                is_dup = True
+                                break
+                    if is_dup:
+                        break
+                
+                if is_dup:
                     continue
+                
+                buckets[bucket_id].append((x1, y1, x2, y2, mx, my))
                 unique_lines.append((x1, y1, x2, y2))
                 
                 # Dibujar en debug con color según ángulo
