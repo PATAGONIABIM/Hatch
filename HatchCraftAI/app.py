@@ -3,6 +3,13 @@ import numpy as np
 from core_logic import DXFtoPatConverter, ImageToPatConverter, render_pat_preview
 import tempfile
 import os
+import hashlib
+
+@st.cache_data(show_spinner="Procesando imagen...")
+def cached_convert(image_hash, **kwargs):
+    """Wrapper cacheado: si los params no cambian, devuelve resultado instantáneo."""
+    converter = ImageToPatConverter()
+    return converter.convert(**kwargs)
 
 st.set_page_config(page_title="HatchCraft - Pattern Generator", layout="wide")
 
@@ -135,12 +142,16 @@ with col1:
                 offset_x = st.slider("Offset X", 0.0, 1.0, 0.0, 0.01, key="off_x")
             with col_off2:
                 offset_y = st.slider("Offset Y", 0.0, 1.0, 0.0, 0.01, key="off_y")
+            
+            max_res = st.slider("🖼️ Resolución de trabajo (px)", 200, 800, 400, 50, key="max_res",
+                               help="Menor = más rápido. Mayor = más detalle.")
 
-            # ── Procesar automáticamente ──
-            converter = ImageToPatConverter()
+            # ── Procesar con cache ──
             image_bytes = uploaded_file.getvalue()
-            result = converter.convert(
-                image_bytes, method=method_key, 
+            img_hash = hashlib.md5(image_bytes).hexdigest()
+            result = cached_convert(
+                img_hash,
+                image_bytes=image_bytes, method=method_key, 
                 canny_low=canny_low, canny_high=canny_high, 
                 blur_size=blur_size, param1=p1, param2=p2,
                 use_clahe=use_clahe, clahe_clip=clahe_clip,
@@ -148,7 +159,8 @@ with col1:
                 use_skeleton=use_skeleton,
                 merge_segments=merge_segments,
                 dedup_threshold=float(dedup_threshold),
-                offset_x=offset_x, offset_y=offset_y
+                offset_x=offset_x, offset_y=offset_y,
+                max_resolution=max_res
             )
             
             if "error" in result:

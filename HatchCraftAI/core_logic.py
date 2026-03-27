@@ -467,7 +467,8 @@ class ImageToPatConverter:
                 use_skeleton=False,
                 merge_segments=False, merge_angle_tol=5.0, merge_gap_tol=10.0,
                 dedup_threshold=8.0,
-                offset_x=0.0, offset_y=0.0):
+                offset_x=0.0, offset_y=0.0,
+                max_resolution=600):
         """
         Pipeline mejorado de imagen a PAT.
         
@@ -484,6 +485,7 @@ class ImageToPatConverter:
           dedup_threshold – Distancia (px) para considerar dos líneas como duplicadas
           offset_x       – Desplazamiento horizontal del patrón (0.0 a 1.0)
           offset_y       – Desplazamiento vertical del patrón (0.0 a 1.0)
+          max_resolution – Resolución máxima de trabajo en px (default 600)
         """
         try:
             # ── Decodificar imagen ──
@@ -498,6 +500,12 @@ class ImageToPatConverter:
             start_x = (w_orig - side) // 2
             start_y = (h_orig - side) // 2
             img = img[start_y:start_y+side, start_x:start_x+side]
+            
+            # ── Downscale para rendimiento ──
+            if side > max_resolution:
+                img = cv2.resize(img, (max_resolution, max_resolution), 
+                                 interpolation=cv2.INTER_AREA)
+                side = max_resolution
             
             # ── Roll circular para alineación de tile ──
             if offset_x != 0.0 or offset_y != 0.0:
