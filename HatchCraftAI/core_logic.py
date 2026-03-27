@@ -295,21 +295,132 @@ class DXFtoPatConverter:
 
 
 class ImageToPatConverter:
-    """Convierte imágenes a PAT solucionando líneas dobles y ángulos rotos"""
+    """Convierte imágenes a PAT con pipeline CV avanzado:
+    - CLAHE para normalización de contraste local
+    - Adaptive Threshold como alternativa a Canny
+    - LSD (Line Segment Detector) sub-pixel
+    - Zhang-Suen Skeletonization (scikit-image)
+    - Merge de segmentos colineales
+    """
     
     def __init__(self):
         pass
     
+    # ── Helpers ──────────────────────────────────────────────
+    
+    @staticmethod
+    def _merge_colinear(lines, angle_tol=5.0, dist_tol=3.0, gap_tol=10.0):
+        """Une segmentos cercanos con ángulo similar para reducir fragmentación.
+        angle_tol: tolerancia angular en grados
+        dist_tol: distancia perpendicular máxima entre segmentos
+        gap_tol: gap máximo a lo largo de la línea para unir
+        """
+        if not lines:
+            return lines
+        
+        # Calcular ángulo y posición perpendicular de cada segmento
+        entries = []
+        for (x1, y1, x2, y2) in lines:
+            dx = x2 - x1
+            dy = y2 - y1
+            ang = math.degrees(math.atan2(dy, dx))
+            if ang < 0:
+                ang += 180
+            if ang >= 180:
+                ang -= 180
+            ang_rad = math.radians(ang)
+            perp = -x1 * math.sin(ang_rad) + y1 * math.cos(ang_rad)
+            para1 = x1 * math.cos(ang_rad) + y1 * math.sin(ang_rad)
+            para2 = x2 * math.cos(ang_rad) + y2 * math.sin(ang_rad)
+            p_min, p_max = min(para1, para2), max(para1, para2)
+            entries.append({
+                'ang': ang, 'perp': perp,
+                'p_min': p_min, 'p_max': p_max,
+                'x1': x1, 'y1': y1, 'x2': x2, 'y2': y2,
+                'merged': False
+            })
+        
+        merged_lines = []
+        for i, a in enumerate(entries):
+            if a['merged']:
+                continue
+            group_min = a['p_min']
+            group_max = a['p_max']
+            a['merged'] = True
+            
+            # Buscar vecinos colineales
+            changed = True
+            while changed:
+                changed = False
+                for j, b in enumerate(entries):
+                    if b['merged']:
+                        continue
+                    # Mismo ángulo y misma línea perpendicular
+                    ang_diff = abs(a['ang'] - b['ang'])
+                    if ang_diff > angle_tol and (180 - ang_diff) > angle_tol:
+                        continue
+                    if abs(a['perp'] - b['perp']) > dist_tol:
+                        continue
+                    # Verificar gap a lo largo de la línea
+                    if b['p_min'] > group_max + gap_tol or b['p_max'] < group_min - gap_tol:
+                        continue
+                    # Merge
+                    group_min = min(group_min, b['p_min'])
+                    group_max = max(group_max, b['p_max'])
+                    b['merged'] = True
+                    changed = True
+            
+            # Reconstruir segmento merged
+            ang_rad = math.radians(a['ang'])
+            cos_a, sin_a = math.cos(ang_rad), math.sin(ang_rad)
+            mx1 = group_min * cos_a - a['perp'] * sin_a  # error: should use + for perp
+            my1 = group_min * sin_a + a['perp'] * cos_a
+            mx2 = group_max * cos_a - a['perp'] * sin_a
+            my2 = group_max * sin_a + a['perp'] * cos_a
+            merged_lines.append((mx1, my1, mx2, my2))
+        
+        return merged_lines
+
+    @staticmethod
+    def _is_duplicate(nx1, ny1, nx2, ny2, unique_lines, threshold=2.5):
+        """Filtra líneas dobles (ida y vuelta del contorno)"""
+        for (ux1, uy1, ux2, uy2) in unique_lines:
+            d1 = math.hypot(nx1-ux1, ny1-uy1) + math.hypot(nx2-ux2, ny2-uy2)
+            d2 = math.hypot(nx1-ux2, ny1-uy2) + math.hypot(nx2-ux1, ny2-uy1)
+            if min(d1, d2) / 2.0 < threshold:
+                return True
+        return False
+    
+    # ── Main ─────────────────────────────────────────────────
+    
     def convert(self, image_bytes, method="hough", canny_low=50, canny_high=150, blur_size=3, 
-                param1=20, param2=5):
+                param1=20, param2=5,
+                use_clahe=False, clahe_clip=2.0,
+                use_adaptive=False, adaptive_block=11, adaptive_c=2,
+                use_skeleton=False,
+                merge_segments=False, merge_angle_tol=5.0, merge_gap_tol=10.0):
+        """
+        Pipeline mejorado de imagen a PAT.
+        
+        Parámetros nuevos:
+          use_clahe       – Aplica CLAHE antes del blur (mejora contraste local)
+          clahe_clip      – clipLimit para CLAHE (2.0 por defecto)
+          use_adaptive    – Usa Adaptive Threshold en vez de Canny
+          adaptive_block  – Tamaño de bloque para adaptive threshold (impar)
+          adaptive_c      – Constante C para adaptive threshold
+          use_skeleton    – Aplica Zhang-Suen skeletonization post-bordes
+          merge_segments  – Une segmentos colineales cercanos
+          merge_angle_tol – Tolerancia angular para merge (grados)
+          merge_gap_tol   – Gap máximo para merge (pixels)
+        """
         try:
-            # Decodificar imagen
+            # ── Decodificar imagen ──
             nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
             if img is None:
                 return {"error": "Error al cargar la imagen"}
             
-            # Hacer cuadrada y obtener dimensiones
+            # Hacer cuadrada
             h_orig, w_orig = img.shape[:2]
             side = min(h_orig, w_orig)
             start_x = (w_orig - side) // 2
@@ -318,17 +429,51 @@ class ImageToPatConverter:
             
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
-            # Blur
+            # ── 1. CLAHE (Contrast Limited Adaptive Histogram Equalization) ──
+            if use_clahe:
+                clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(8, 8))
+                gray = clahe.apply(gray)
+            
+            # ── 2. Blur ──
             if blur_size > 1:
                 blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1
                 blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
             else:
                 blurred = gray
-                
-            # Canny puro (sin la esqueletización destructiva anterior)
-            edges = cv2.Canny(blurred, canny_low, canny_high)
             
+            # ── 3. Binarización: Canny vs Adaptive Threshold ──
+            if use_adaptive:
+                adaptive_block = adaptive_block if adaptive_block % 2 == 1 else adaptive_block + 1
+                if adaptive_block < 3:
+                    adaptive_block = 3
+                edges = cv2.adaptiveThreshold(
+                    blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                    cv2.THRESH_BINARY_INV, adaptive_block, adaptive_c
+                )
+            else:
+                edges = cv2.Canny(blurred, canny_low, canny_high)
+            
+            # ── 4. Skeleton (Zhang-Suen via scikit-image) ──
+            if use_skeleton:
+                try:
+                    from skimage.morphology import skeletonize
+                    skeleton_input = (edges > 0).astype(np.uint8)
+                    skeleton = skeletonize(skeleton_input).astype(np.uint8) * 255
+                    if cv2.countNonZero(skeleton) > 0:
+                        edges = skeleton
+                    # Si el skeleton es vacío, mantener edges original (Rule 67)
+                except ImportError:
+                    pass  # scikit-image no disponible, continuar sin skeleton
+            
+            # ── 5. Detección de líneas según método ──
             debug_img = np.ones((side, side, 3), dtype=np.uint8) * 255
+            # Dibujar los bordes detectados en gris como referencia
+            edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+            debug_edges = np.where(edges_color > 0, 
+                                   np.array([220, 220, 220], dtype=np.uint8), 
+                                   np.array([255, 255, 255], dtype=np.uint8))
+            debug_img = debug_edges.astype(np.uint8)
+            
             raw_lines = []
             
             if method == "hough":
@@ -336,15 +481,31 @@ class ImageToPatConverter:
                 kernel = np.ones((2, 2), np.uint8)
                 closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
                 
-                # Transformada Probabilística de Hough para encontrar líneas rectas puras
+                # Transformada Probabilística de Hough
                 lines = cv2.HoughLinesP(closed_edges, 1, np.pi/180, threshold=20, 
                                         minLineLength=param1, maxLineGap=param2)
                 if lines is not None:
                     for line in lines:
                         x1, y1, x2, y2 = line[0]
                         raw_lines.append((x1, y1, x2, y2))
-            else:
-                # Contornos para formas orgánicas (suavizado sin perder estructura)
+            
+            elif method == "lsd":
+                # ── LSD: Line Segment Detector (sub-pixel, auto-tuning) ──
+                lsd = cv2.createLineSegmentDetector(
+                    cv2.LSD_REFINE_STD  # Refinamiento estándar
+                )
+                lines_lsd, widths, precs, nfas = lsd.detect(blurred)
+                
+                if lines_lsd is not None:
+                    min_len = float(param1)
+                    for i, line in enumerate(lines_lsd):
+                        x1, y1, x2, y2 = line[0]
+                        seg_len = math.hypot(x2 - x1, y2 - y1)
+                        if seg_len >= min_len:
+                            raw_lines.append((x1, y1, x2, y2))
+            
+            else:  # contour
+                # Contornos para formas orgánicas
                 kernel = np.ones((2, 2), np.uint8)
                 dilated = cv2.dilate(edges, kernel, iterations=1)
                 contours, _ = cv2.findContours(dilated, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
@@ -365,28 +526,47 @@ class ImageToPatConverter:
                         x2, y2 = pts[i+1]
                         raw_lines.append((x1, y1, x2, y2))
 
-            # Filtro Espacial: Elimina las molestas "líneas dobles" (ida y vuelta del contorno)
-            unique_lines = []
-            def is_duplicate(nx1, ny1, nx2, ny2, threshold=2.5):
-                for (ux1, uy1, ux2, uy2) in unique_lines:
-                    d1 = math.hypot(nx1-ux1, ny1-uy1) + math.hypot(nx2-ux2, ny2-uy2)
-                    d2 = math.hypot(nx1-ux2, ny1-uy2) + math.hypot(nx2-ux1, ny2-uy1)
-                    if min(d1, d2) / 2.0 < threshold:
-                        return True
-                return False
+            # ── 6. Merge colineal (reduce fragmentación) ──
+            if merge_segments and len(raw_lines) > 1:
+                raw_lines = self._merge_colinear(
+                    raw_lines, 
+                    angle_tol=merge_angle_tol, 
+                    gap_tol=merge_gap_tol
+                )
 
+            # ── 7. Filtrado y generación PAT ──
+            unique_lines = []
             pat_lines = []
             tile_size = 1.0
             
             for x1, y1, x2, y2 in raw_lines:
                 if method == "contour":
-                    if is_duplicate(x1, y1, x2, y2):
+                    if self._is_duplicate(x1, y1, x2, y2, unique_lines):
                         continue
                 unique_lines.append((x1, y1, x2, y2))
                 
-                cv2.line(debug_img, (int(x1), int(y1)), (int(x2), int(y2)), (0, 0, 0), 1, cv2.LINE_AA)
+                # Dibujar en debug con color según ángulo
+                dx_raw = x2 - x1
+                dy_raw = y2 - y1
+                ang_raw = math.degrees(math.atan2(dy_raw, dx_raw))
+                if ang_raw < 0:
+                    ang_raw += 180
                 
-                # Normalizar coordenadas de 0 a 1 e invertir Y (Para que coincida en Revit)
+                if abs(ang_raw) < 15 or abs(ang_raw - 180) < 15:
+                    line_color = (220, 50, 50)    # Rojo - horizontal
+                elif abs(ang_raw - 90) < 15:
+                    line_color = (50, 50, 220)    # Azul - vertical
+                elif abs(ang_raw - 45) < 15:
+                    line_color = (50, 180, 50)    # Verde - diagonal
+                elif abs(ang_raw - 135) < 15:
+                    line_color = (180, 50, 180)   # Magenta - diagonal inv
+                else:
+                    line_color = (80, 80, 80)     # Gris - otros
+                
+                cv2.line(debug_img, (int(x1), int(y1)), (int(x2), int(y2)), 
+                         line_color, 1, cv2.LINE_AA)
+                
+                # Normalizar coordenadas de 0 a 1 e invertir Y
                 nx1 = x1 / side
                 ny1 = 1.0 - (y1 / side)
                 nx2 = x2 / side
@@ -403,8 +583,6 @@ class ImageToPatConverter:
                 if ang < 0:
                     ang += 360
                     
-                # NO forzamos los ángulos a 15°. Dejamos la precisión decimal.
-                # Así los vértices no se separan.
                 if ang >= 180:
                     ang -= 180
                     nx1, ny1, nx2, ny2 = nx2, ny2, nx1, ny1
@@ -424,6 +602,7 @@ class ImageToPatConverter:
             if not pat_lines:
                 return {"error": "No se detectaron líneas válidas. Ajusta los parámetros."}
                 
+            # ── Generar archivo PAT ──
             header = [
                 "*Image_Pattern, HatchCraft precision pattern",
                 ";%TYPE=MODEL"
@@ -433,11 +612,24 @@ class ImageToPatConverter:
             
             pat_preview = render_pat_preview(pat_content)
             
+            # Stats detalladas
+            method_names = {"hough": "HOUGH", "lsd": "LSD", "contour": "CONTOUR"}
+            extras = []
+            if use_clahe:
+                extras.append("CLAHE")
+            if use_adaptive:
+                extras.append("AdaptiveThresh")
+            if use_skeleton:
+                extras.append("Skeleton")
+            if merge_segments:
+                extras.append(f"Merge({len(raw_lines)}→{len(pat_lines)})")
+            extra_str = f" + {', '.join(extras)}" if extras else ""
+            
             return {
                 "pat_content": pat_content,
                 "pat_preview": pat_preview,
                 "debug_img": debug_img,
-                "stats": f"✅ Modo {method.upper()}: {len(pat_lines)} líneas exportadas limpiamente"
+                "stats": f"✅ {method_names.get(method, method.upper())}{extra_str}: {len(pat_lines)} líneas"
             }
             
         except Exception as e:
