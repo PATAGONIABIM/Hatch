@@ -488,6 +488,10 @@ class ImageToPatConverter:
           max_resolution – Resolución máxima de trabajo en px (default 600)
         """
         try:
+            import time
+            timings = {}
+            t0 = time.perf_counter()
+            
             # ── Decodificar imagen ──
             nparr = np.frombuffer(image_bytes, np.uint8)
             img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
@@ -513,6 +517,9 @@ class ImageToPatConverter:
                 shift_y = int(round(offset_y * side))
                 img = np.roll(img, shift_x, axis=1)  # Horizontal
                 img = np.roll(img, shift_y, axis=0)  # Vertical
+            
+            timings['decode+resize'] = time.perf_counter() - t0
+            t1 = time.perf_counter()
             
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
@@ -540,6 +547,9 @@ class ImageToPatConverter:
             else:
                 edges = cv2.Canny(blurred, canny_low, canny_high)
             
+            timings['preprocess'] = time.perf_counter() - t1
+            t2 = time.perf_counter()
+            
             # ── 4. Skeleton (Zhang-Suen via scikit-image) ──
             if use_skeleton:
                 try:
@@ -551,6 +561,9 @@ class ImageToPatConverter:
                     # Si el skeleton es vacío, mantener edges original (Rule 67)
                 except ImportError:
                     pass  # scikit-image no disponible, continuar sin skeleton
+            
+            timings['skeleton'] = time.perf_counter() - t2
+            t3 = time.perf_counter()
             
             # ── 5. Detección de líneas según método ──
             debug_img = np.ones((side, side, 3), dtype=np.uint8) * 255
@@ -612,6 +625,9 @@ class ImageToPatConverter:
                         x1, y1 = pts[i]
                         x2, y2 = pts[i+1]
                         raw_lines.append((x1, y1, x2, y2))
+
+            timings['detection'] = time.perf_counter() - t3
+            t4 = time.perf_counter()
 
             # ── 6. Merge colineal (reduce fragmentación) ──
             if merge_segments and len(raw_lines) > 1:
@@ -687,6 +703,9 @@ class ImageToPatConverter:
                 
             if not pat_lines:
                 return {"error": "No se detectaron líneas válidas. Ajusta los parámetros."}
+            
+            timings['dedup+pat'] = time.perf_counter() - t4
+            t5 = time.perf_counter()
                 
             # ── Generar archivo PAT ──
             header = [
@@ -698,7 +717,10 @@ class ImageToPatConverter:
             
             pat_preview = render_pat_preview(pat_content)
             
-            # Stats detalladas
+            timings['preview'] = time.perf_counter() - t5
+            total_time = time.perf_counter() - t0
+            
+            # Stats detalladas con timing
             method_names = {"hough": "HOUGH", "lsd": "LSD", "contour": "CONTOUR"}
             extras = []
             if use_clahe:
@@ -711,11 +733,13 @@ class ImageToPatConverter:
                 extras.append(f"Merge({len(raw_lines)}→{len(pat_lines)})")
             extra_str = f" + {', '.join(extras)}" if extras else ""
             
+            timing_str = " | ".join(f"{k}:{v:.2f}s" for k, v in timings.items())
+            
             return {
                 "pat_content": pat_content,
                 "pat_preview": pat_preview,
                 "debug_img": debug_img,
-                "stats": f"✅ {method_names.get(method, method.upper())}{extra_str}: {len(pat_lines)} líneas"
+                "stats": f"✅ {method_names.get(method, method.upper())}{extra_str}: {len(pat_lines)} líneas ({total_time:.1f}s) | {timing_str}"
             }
             
         except Exception as e:
