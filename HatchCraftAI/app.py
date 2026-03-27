@@ -128,6 +128,14 @@ with col1:
                     p2 = st.slider("Suavizado de curvas", 0.001, 0.05, 0.005, format="%.3f", key="cont_eps")
                     method_key = "contour"
             
+            # ── Alinear patrón ──
+            st.caption("📐 Alinear Patrón")
+            col_off1, col_off2 = st.columns(2)
+            with col_off1:
+                offset_x = st.slider("Offset X", 0.0, 1.0, 0.0, 0.01, key="off_x")
+            with col_off2:
+                offset_y = st.slider("Offset Y", 0.0, 1.0, 0.0, 0.01, key="off_y")
+
             # ── Procesar automáticamente ──
             converter = ImageToPatConverter()
             image_bytes = uploaded_file.getvalue()
@@ -139,7 +147,8 @@ with col1:
                 use_adaptive=use_adaptive, adaptive_block=adaptive_block, adaptive_c=adaptive_c,
                 use_skeleton=use_skeleton,
                 merge_segments=merge_segments,
-                dedup_threshold=float(dedup_threshold)
+                dedup_threshold=float(dedup_threshold),
+                offset_x=offset_x, offset_y=offset_y
             )
             
             if "error" in result:

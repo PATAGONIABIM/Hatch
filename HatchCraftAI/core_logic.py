@@ -466,7 +466,8 @@ class ImageToPatConverter:
                 use_adaptive=False, adaptive_block=11, adaptive_c=2,
                 use_skeleton=False,
                 merge_segments=False, merge_angle_tol=5.0, merge_gap_tol=10.0,
-                dedup_threshold=8.0):
+                dedup_threshold=8.0,
+                offset_x=0.0, offset_y=0.0):
         """
         Pipeline mejorado de imagen a PAT.
         
@@ -481,6 +482,8 @@ class ImageToPatConverter:
           merge_angle_tol – Tolerancia angular para merge (grados)
           merge_gap_tol   – Gap máximo para merge (pixels)
           dedup_threshold – Distancia (px) para considerar dos líneas como duplicadas
+          offset_x       – Desplazamiento horizontal del patrón (0.0 a 1.0)
+          offset_y       – Desplazamiento vertical del patrón (0.0 a 1.0)
         """
         try:
             # ── Decodificar imagen ──
@@ -634,11 +637,11 @@ class ImageToPatConverter:
                 cv2.line(debug_img, (int(x1), int(y1)), (int(x2), int(y2)), 
                          line_color, 1, cv2.LINE_AA)
                 
-                # Normalizar coordenadas de 0 a 1 e invertir Y
-                nx1 = x1 / side
-                ny1 = 1.0 - (y1 / side)
-                nx2 = x2 / side
-                ny2 = 1.0 - (y2 / side)
+                # Normalizar coordenadas de 0 a 1 e invertir Y + aplicar offset
+                nx1 = (x1 / side + offset_x) % 1.0
+                ny1 = (1.0 - (y1 / side) + offset_y) % 1.0
+                nx2 = (x2 / side + offset_x) % 1.0
+                ny2 = (1.0 - (y2 / side) + offset_y) % 1.0
                 
                 dx = nx2 - nx1
                 dy = ny2 - ny1
