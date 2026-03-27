@@ -382,51 +382,79 @@ class ImageToPatConverter:
         return merged_lines
 
     @staticmethod
+    def _point_to_line_dist(px, py, lx1, ly1, lx2, ly2):
+        """Distancia perpendicular de un punto a una línea (infinita)."""
+        dx = lx2 - lx1
+        dy = ly2 - ly1
+        len_sq = dx * dx + dy * dy
+        if len_sq < 1e-10:
+            return math.hypot(px - lx1, py - ly1)
+        # Proyección del punto sobre la línea
+        return abs(dy * px - dx * py + lx2 * ly1 - ly2 * lx1) / math.sqrt(len_sq)
+
+    @staticmethod
+    def _segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
+        """Verifica si las proyecciones de dos segmentos sobre su eje compartido se solapan."""
+        # Usar la dirección del primer segmento como eje
+        dx = x2 - x1
+        dy = y2 - y1
+        seg_len = math.hypot(dx, dy)
+        if seg_len < 1e-10:
+            return True
+        ux, uy = dx / seg_len, dy / seg_len
+        
+        # Proyectar los 4 puntos sobre el eje
+        p1 = x1 * ux + y1 * uy
+        p2 = x2 * ux + y2 * uy
+        q1 = ux1 * ux + uy1 * uy
+        q2 = ux2 * ux + uy2 * uy
+        
+        a_min, a_max = min(p1, p2), max(p1, p2)
+        b_min, b_max = min(q1, q2), max(q1, q2)
+        
+        # Solapan si los rangos se intersectan (con tolerancia del 20% de la longitud)
+        tol = seg_len * 0.2
+        return a_min <= b_max + tol and b_min <= a_max + tol
+
+    @staticmethod
     def _is_duplicate(x1, y1, x2, y2, unique_lines, threshold=8.0):
-        """Filtra líneas dobles usando midpoint + ángulo.
-        Más robusto que endpoint-only: detecta paralelas cercanas
-        incluso si los extremos no coinciden exactamente.
+        """Filtra líneas dobles usando distancia PERPENDICULAR + solapamiento.
+        
+        Resuelve el problema de paralelas desfasadas longitudinalmente:
+        dos líneas son duplicadas si son paralelas, están perpendicularmente
+        cerca, y sus proyecciones se solapan sobre el eje compartido.
         """
-        mx = (x1 + x2) / 2.0
-        my = (y1 + y2) / 2.0
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
         if ang < 0:
             ang += 180
         if ang >= 180:
             ang -= 180
-        seg_len = math.hypot(x2 - x1, y2 - y1)
+        mx = (x1 + x2) / 2.0
+        my = (y1 + y2) / 2.0
         
         for (ux1, uy1, ux2, uy2) in unique_lines:
-            umx = (ux1 + ux2) / 2.0
-            umy = (uy1 + uy2) / 2.0
             uang = math.degrees(math.atan2(uy2 - uy1, ux2 - ux1))
             if uang < 0:
                 uang += 180
             if uang >= 180:
                 uang -= 180
-            u_len = math.hypot(ux2 - ux1, uy2 - uy1)
             
-            # Ángulo similar (tolerancia 10°)
+            # ── 1. Ángulo similar (tolerancia 12°) ──
             ang_diff = abs(ang - uang)
-            if ang_diff > 10 and (180 - ang_diff) > 10:
+            if ang_diff > 12 and (180 - ang_diff) > 12:
                 continue
             
-            # Longitud similar (dentro de 50%)
-            if max(seg_len, u_len) > 0:
-                len_ratio = min(seg_len, u_len) / max(seg_len, u_len)
-                if len_ratio < 0.5:
-                    continue
+            # ── 2. Distancia perpendicular del midpoint a la otra línea ──
+            perp_dist = ImageToPatConverter._point_to_line_dist(
+                mx, my, ux1, uy1, ux2, uy2
+            )
             
-            # Midpoint cercano
-            mid_dist = math.hypot(mx - umx, my - umy)
-            if mid_dist < threshold:
-                return True
-            
-            # Fallback: endpoints cercanos (para segmentos cortos)
-            d1 = math.hypot(x1 - ux1, y1 - uy1) + math.hypot(x2 - ux2, y2 - uy2)
-            d2 = math.hypot(x1 - ux2, y1 - uy2) + math.hypot(x2 - ux1, y2 - uy1)
-            if min(d1, d2) / 2.0 < threshold * 0.6:
-                return True
+            if perp_dist < threshold:
+                # ── 3. Verificar solapamiento longitudinal ──
+                if ImageToPatConverter._segments_overlap(
+                    x1, y1, x2, y2, ux1, uy1, ux2, uy2
+                ):
+                    return True
         
         return False
     
