@@ -499,6 +499,13 @@ class ImageToPatConverter:
             start_y = (h_orig - side) // 2
             img = img[start_y:start_y+side, start_x:start_x+side]
             
+            # ── Roll circular para alineación de tile ──
+            if offset_x != 0.0 or offset_y != 0.0:
+                shift_x = int(round(offset_x * side))
+                shift_y = int(round(offset_y * side))
+                img = np.roll(img, shift_x, axis=1)  # Horizontal
+                img = np.roll(img, shift_y, axis=0)  # Vertical
+            
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
             # ── 1. CLAHE (Contrast Limited Adaptive Histogram Equalization) ──
@@ -658,9 +665,8 @@ class ImageToPatConverter:
                     ang -= 180
                     nx1, ny1, nx2, ny2 = nx2, ny2, nx1, ny1
                     
-                # Aplicar offset SOLO al origin (no a endpoints de geometría)
-                ox = round((nx1 + offset_x) % 1.0, 5)
-                oy = round((ny1 + offset_y) % 1.0, 5)
+                ox = round(nx1, 5)
+                oy = round(ny1, 5)
                 ang_q = round(ang, 3)
                 dash = round(length, 5)
                 gap = round(-(tile_size - length), 5)
