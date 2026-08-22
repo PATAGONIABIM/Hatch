@@ -154,7 +154,7 @@
     });
 
     /* ============ Smooth scroll (Lenis, igual que patagoniabim.cl) ============ */
-    if (!reducedMotion && window.Lenis) {
+    if (window.Lenis) {
         const lenis = new Lenis({
             duration: 1.0,
             easing: (t) => 1 - Math.pow(1 - t, 3),
