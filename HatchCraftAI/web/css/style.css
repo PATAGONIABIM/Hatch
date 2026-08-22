@@ -118,11 +118,11 @@ body {
     background: var(--bg);
     display: grid;
     place-items: center;
-    transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), visibility 0s linear 1s;
+    transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1), visibility 0s linear 1s;
 }
 
 #loader .loader-inner {
-    transition: opacity 1s cubic-bezier(0.16, 1, 0.3, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1);
+    transition: opacity 1s cubic-bezier(0.4, 0, 0.2, 1), transform 1s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #loader.is-done {
