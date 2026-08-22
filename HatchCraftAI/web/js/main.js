@@ -440,8 +440,8 @@
         if (mode === 'dxf') {
             fd.append('pattern_name', 'DXF_Pattern');
         } else {
-            const num = (id) => parseFloat($(id).value);
-            const bool = (id) => $(id).checked;
+            const num = (id) => parseFloat($('#' + id).value);
+            const bool = (id) => $('#' + id).checked;
             fd.append('method', methodSel.value);
             fd.append('canny_low', $('#ctl-cannylow').value);
             fd.append('canny_high', $('#ctl-cannyhigh').value);

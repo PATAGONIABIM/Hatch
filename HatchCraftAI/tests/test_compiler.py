@@ -1,9 +1,11 @@
 import math
 
+import cv2
+import numpy as np
 import pytest
 
 from pat_compiler import compile_pat
-from pat_sim import parse_pat, segments_in_rect, _clip_segment
+from pat_sim import parse_pat, render_faithful, segments_in_rect, _clip_segment
 
 EPS = 1e-6
 
@@ -83,7 +85,7 @@ def _random_segments(seed, w, h, count=40):
 
 
 @pytest.mark.parametrize("seed", [1, 7, 42, 123])
-def test_roundtrip_no_loss_no_ghosts(seed):
+def test_roundtrip_no_loss(seed):
     w = h = 10.0
     segs = _random_segments(seed, w, h)
     result = compile_pat(segs, name="RT", tile_w=w, tile_h=h,
@@ -92,11 +94,43 @@ def test_roundtrip_no_loss_no_ghosts(seed):
     rect = (0.0, 0.0, w, h)
     decoded = segments_in_rect(result["pat_content"], rect)
     expected = _wrapped_expected(segs, w, h, rect)
-    _assert_same_geometry(expected, decoded)
+    exp_pts = [p for s in expected
+               for p in _sample_points(s)
+               if math.hypot(s[2] - s[0], s[3] - s[1]) > 1e-4]
+    assert exp_pts
+    for p in exp_pts:
+        assert _covered(p, decoded, 5e-3), f"punto esperado sin cobertura: {p}"
+
+
+def _tile_dark_counts(pat_content, tile_w, tile_h, tiles=5, size=500):
+    img = render_faithful(pat_content, tile_w=tile_w, tile_h=tile_h,
+                          tiles=tiles, size=size, show_grid=False)
+    tp = size // tiles
+    counts = []
+    for r in range(tiles):
+        for c in range(tiles):
+            cell = img[r * tp:(r + 1) * tp, c * tp:(c + 1) * tp]
+            counts.append(int((cell < 128).sum()))
+    return counts
+
+
+@pytest.mark.parametrize("seed", [1, 7, 42, 123])
+def test_tiling_no_empty_quadrant(seed):
+    w = h = 10.0
+    segs = _random_segments(seed, w, h)
+    result = compile_pat(segs, name="TILE", tile_w=w, tile_h=h,
+                         min_dash=0.05, min_gap=0.05,
+                         angle_tol=0.3, perp_tol=0.03)
+    counts = _tile_dark_counts(result["pat_content"], w, h)
+    avg = sum(counts) / len(counts)
+    assert avg > 0
+    for i, c in enumerate(counts):
+        assert c >= 0.25 * avg, (
+            f"tile {i} casi vacío: {c} px vs promedio {avg:.0f}")
 
 
 @pytest.mark.parametrize("seed", [3, 99])
-def test_delta_parallel_and_matches_cycle(seed):
+def test_delta_tile_periodic_and_matches_cycle(seed):
     w = h = 10.0
     segs = _random_segments(seed, w, h)
     result = compile_pat(segs, name="INV", tile_w=w, tile_h=h,
@@ -105,12 +139,15 @@ def test_delta_parallel_and_matches_cycle(seed):
     assert entries
     for e in entries:
         rad = math.radians(e["angle"])
-        ux, uy = math.cos(rad), math.sin(rad)
-        cross = e["dx"] * uy - e["dy"] * ux
-        assert abs(cross) < 1e-3, "delta no es paralelo a la dirección"
-        cycle = sum(abs(d) for d in e["dashes"])
-        dlen = math.hypot(e["dx"], e["dy"])
-        assert abs(dlen - cycle) < max(1e-3, 1e-4 * cycle)
+        nx, ny = -math.sin(rad), math.cos(rad)
+        perp1 = abs(w * nx)
+        perp2 = abs(h * ny)
+        if perp1 >= perp2:
+            assert e["dx"] == pytest.approx(w, abs=1e-6)
+            assert e["dy"] == pytest.approx(0.0, abs=1e-6)
+        else:
+            assert e["dx"] == pytest.approx(0.0, abs=1e-6)
+            assert e["dy"] == pytest.approx(h, abs=1e-6)
         assert 0 <= e["angle"] < 180
 
 

@@ -150,14 +150,23 @@ def compile_carrier_entries(angle, member_segments, tile_w, tile_h,
     nx, ny = -math.sin(rad), math.cos(rad)
 
     lines = []
+    ext = tile_w * abs(nx) + tile_h * abs(ny)
+    if abs(tile_w * nx) > EPS:
+        da_span = max(1, int(math.ceil(ext / abs(tile_w * nx))))
+    else:
+        da_span = 1
+    if abs(tile_h * ny) > EPS:
+        db_span = max(1, int(math.ceil(ext / abs(tile_h * ny))))
+    else:
+        db_span = 1
     for (x1, y1, x2, y2) in member_segments:
         t1 = x1 * ux + y1 * uy
         t2 = x2 * ux + y2 * uy
         if t1 > t2:
             t1, t2 = t2, t1
         base_c = ((x1 + x2) / 2.0) * nx + ((y1 + y2) / 2.0) * ny
-        for da in (-1, 0, 1):
-            for db in (-1, 0, 1):
+        for da in range(-da_span, da_span + 1):
+            for db in range(-db_span, db_span + 1):
                 sc = base_c + da * tile_w * nx + db * tile_h * ny
                 target = None
                 for ln in lines:
@@ -208,10 +217,14 @@ def compile_carrier_entries(angle, member_segments, tile_w, tile_h,
         window = s_hi - s_lo
         ox = s_lo * ux + ln["c"] * nx
         oy = s_lo * uy + ln["c"] * ny
+        if abs(tile_w * nx) >= abs(tile_h * ny):
+            fdx, fdy = tile_w, 0.0
+        else:
+            fdx, fdy = 0.0, tile_h
         entries.append({
             "angle": angle,
             "ox": ox, "oy": oy,
-            "dx": window * ux, "dy": window * uy,
+            "dx": fdx, "dy": fdy,
             "dashes": dashes,
             "cycle": window,
         })

@@ -44,9 +44,12 @@ def test_diagonal_continuous_no_phase_shift():
     assert len(entries) == 1
     e = entries[0]
     assert abs(e["angle"] - 45.0) < 0.01
-    cross = e["dx"] * math.sin(math.radians(45)) \
-        - e["dy"] * math.cos(math.radians(45))
-    assert abs(cross) < 1e-6
+    rad = math.radians(45.0)
+    ux, uy = math.cos(rad), math.sin(rad)
+    dlen = e["dx"] * ux + e["dy"] * uy
+    assert dlen > 1e-6, "delta degenerado (paralelo a la línea)"
+    cycle = sum(abs(d) for d in e["dashes"])
+    assert abs(cycle - 10.0 * math.sqrt(2.0)) < 1e-3
 
 
 def test_compile_rejects_empty():
