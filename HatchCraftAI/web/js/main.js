@@ -208,7 +208,7 @@
                 loader.style.visibility = 'hidden';
                 loader.style.pointerEvents = 'none';
                 if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({ type: 'hatch-app-ready' }, '*');
+                    window.parent.postMessage({ type: 'app-ready' }, '*');
                 }
             }
         }
