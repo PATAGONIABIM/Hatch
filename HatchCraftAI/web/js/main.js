@@ -155,12 +155,26 @@
 
     /* ============ Loader ============ */
     const loader = $('#loader');
+    const loaderBar = $('.loader-bar-fill');
+    const MIN_LOAD = 1400;
+
+    function runLoaderBar() {
+        const t0 = performance.now();
+        function frame(now) {
+            const p = Math.min(1, (now - t0) / MIN_LOAD);
+            loaderBar.style.transform = 'scaleX(' + (1 - Math.pow(1 - p, 3)) + ')';
+            if (p < 1) requestAnimationFrame(frame);
+        }
+        requestAnimationFrame(frame);
+    }
+
     function hideLoader() {
         loader.classList.add('is-done');
         document.body.classList.add('is-loaded');
     }
-    const minLoad = new Promise((r) => setTimeout(r, 900));
-    Promise.all([minLoad, window.loadEvent || Promise.resolve()]).then(hideLoader);
+
+    runLoaderBar();
+    Promise.all([new Promise((r) => setTimeout(r, MIN_LOAD)), window.loadEvent || Promise.resolve()]).then(hideLoader);
 
     /* ============ Custom cursor ============ */
     if (!reducedMotion && window.matchMedia('(hover: hover)').matches) {
