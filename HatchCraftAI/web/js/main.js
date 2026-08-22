@@ -190,6 +190,9 @@
     }
 
     function hideLoader() {
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'hatch-app-ready' }, '*');
+        }
         document.body.classList.add('is-loaded');
         pendingReveals.forEach((el, i) => {
             el.style.transitionDelay = Math.min(i * 140, 560) + 'ms';
