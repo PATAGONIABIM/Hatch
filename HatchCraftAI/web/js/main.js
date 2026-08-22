@@ -157,6 +157,12 @@
     const loader = $('#loader');
     const loaderBar = $('.loader-bar-fill');
     const MIN_LOAD = 1400;
+    const FADE_MS = 1200;
+    const pendingReveals = [];
+
+    function easeInOut(p) {
+        return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+    }
 
     function runLoaderBar() {
         const t0 = performance.now();
@@ -169,8 +175,26 @@
     }
 
     function hideLoader() {
-        loader.classList.add('is-done');
         document.body.classList.add('is-loaded');
+        pendingReveals.forEach((el, i) => {
+            el.style.transitionDelay = Math.min(i * 140, 560) + 'ms';
+            el.classList.add('is-visible');
+        });
+        pendingReveals.length = 0;
+        loader.classList.add('is-done');
+        const t0 = performance.now();
+        function fade(now) {
+            const p = Math.min(1, (now - t0) / FADE_MS);
+            loader.style.opacity = String(1 - easeInOut(p));
+            if (p < 1) {
+                requestAnimationFrame(fade);
+            } else {
+                loader.style.opacity = '0';
+                loader.style.visibility = 'hidden';
+                loader.style.pointerEvents = 'none';
+            }
+        }
+        requestAnimationFrame(fade);
     }
 
     runLoaderBar();
@@ -577,8 +601,13 @@
     const io = new IntersectionObserver((entries) => {
         entries.forEach((entry) => {
             if (entry.isIntersecting) {
-                entry.target.classList.add('is-visible');
-                io.unobserve(entry.target);
+                const el = entry.target;
+                if (document.body.classList.contains('is-loaded')) {
+                    el.classList.add('is-visible');
+                } else {
+                    pendingReveals.push(el);
+                }
+                io.unobserve(el);
             }
         });
     }, { threshold: 0.12 });
