@@ -283,19 +283,6 @@ body {
     background: var(--border-strong);
 }
 
-.status-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255, 255, 255, 0.15);
-    transition: background 0.4s;
-}
-
-.status-dot.is-online {
-    background: var(--accent);
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.6);
-}
-
 /* ---------- Hero ---------- */
 .hero {
     position: relative;

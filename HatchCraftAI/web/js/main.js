@@ -571,12 +571,5 @@
     $$('.reveal').forEach((el) => io.observe(el));
 
     /* ============ Health check ============ */
-    fetch('/api/health')
-        .then((r) => r.json())
-        .then((j) => {
-            if (j.status === 'ok') {
-                $('.status-dot').classList.add('is-online');
-            }
-        })
-        .catch(() => {});
+    fetch('/api/health').catch(() => {});
 })();
