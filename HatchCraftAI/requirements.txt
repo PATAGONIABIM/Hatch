@@ -1,7 +1,11 @@
 streamlit
-opencv-python-headless
+opencv-contrib-python-headless>=4.8
 numpy
 ezdxf
 requests
 Pillow
 scikit-image
+pytest
+fastapi
+uvicorn
+python-multipart
