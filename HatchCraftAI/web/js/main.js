@@ -153,6 +153,21 @@
         });
     });
 
+    /* ============ Smooth scroll (Lenis, igual que patagoniabim.cl) ============ */
+    if (!reducedMotion && window.Lenis) {
+        const lenis = new Lenis({
+            duration: 1.0,
+            easing: (t) => 1 - Math.pow(1 - t, 3),
+            smoothWheel: true,
+            touchMultiplier: 1.5,
+        });
+        function raf(time) {
+            lenis.raf(time);
+            requestAnimationFrame(raf);
+        }
+        requestAnimationFrame(raf);
+    }
+
     /* ============ Loader ============ */
     const loader = $('#loader');
     const loaderBar = $('.loader-bar-fill');
