@@ -247,6 +247,19 @@ body {
     gap: 10px;
 }
 
+.lang-switch-fixed {
+    position: fixed;
+    bottom: 24px;
+    left: 24px;
+    z-index: 200;
+    padding: 8px 16px;
+    border-radius: 12px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border-strong);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+}
+
 .lang-btn {
     background: none;
     border: none;
