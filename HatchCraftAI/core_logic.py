@@ -466,7 +466,8 @@ class ImageToPatConverter:
                     if lines_fld is not None:
                         min_len = float(param1)
                         for line in lines_fld:
-                            x1, y1, x2, y2 = line[0]
+                            coords = np.asarray(line).ravel()
+                            x1, y1, x2, y2 = coords[:4]
                             if math.hypot(x2 - x1, y2 - y1) >= min_len:
                                 raw_lines.append((float(x1), float(y1),
                                                   float(x2), float(y2)))
@@ -481,7 +482,8 @@ class ImageToPatConverter:
                                         minLineLength=param1, maxLineGap=param2)
                 if lines is not None:
                     for line in lines:
-                        x1, y1, x2, y2 = line[0]
+                        coords = np.asarray(line).ravel()
+                        x1, y1, x2, y2 = coords[:4]
                         raw_lines.append((float(x1), float(y1),
                                           float(x2), float(y2)))
 
@@ -492,7 +494,8 @@ class ImageToPatConverter:
                 if lines_lsd is not None:
                     min_len = float(param1)
                     for line in lines_lsd:
-                        x1, y1, x2, y2 = line[0]
+                        coords = np.asarray(line).ravel()
+                        x1, y1, x2, y2 = coords[:4]
                         seg_len = math.hypot(float(x2) - float(x1),
                                              float(y2) - float(y1))
                         if seg_len >= min_len:
