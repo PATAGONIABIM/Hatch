@@ -91,6 +91,10 @@ def iter_entry_segments(entry, rect):
         dprojs = [px * dux + py * duy for px, py in corners]
         kmin = int(math.floor(min(dprojs) / dlen)) - 1
         kmax = int(math.ceil(max(dprojs) / dlen)) + 1
+        if kmax - kmin > 1200:
+            kmid = (kmin + kmax) // 2
+            kmin = max(kmin, kmid - 600)
+            kmax = min(kmax, kmid + 600)
     else:
         kmin, kmax = 0, 0
 
@@ -113,6 +117,10 @@ def iter_entry_segments(entry, rect):
 
         m_start = int(math.floor(rmin / cycle)) - 1
         m_end = int(math.ceil(rmax / cycle)) + 1
+        if m_end - m_start > 1200:
+            mmid = (m_start + m_end) // 2
+            m_start = max(m_start, mmid - 600)
+            m_end = min(m_end, mmid + 600)
         for m in range(m_start, m_end + 1):
             base_s = m * cycle
             pos = base_s
@@ -187,10 +195,17 @@ def render_faithful(pat_content, tile_w=None, tile_h=None,
             cv2.line(img, p1, p2, (215, 215, 215), 1, cv2.LINE_AA)
             gy += tile_h
 
+    seg_count = 0
+    max_segments = 30000
     for e in entries:
         for (p1, p2) in iter_entry_segments(e, rect):
             cv2.line(img, to_screen(*p1), to_screen(*p2),
                      (0, 0, 0), 1, cv2.LINE_AA)
+            seg_count += 1
+            if seg_count >= max_segments:
+                break
+        if seg_count >= max_segments:
+            break
 
     return img
 

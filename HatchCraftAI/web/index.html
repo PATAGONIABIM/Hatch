@@ -5,10 +5,77 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HATCH.it — Patrones de relleno para Revit</title>
     <meta name="description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <link rel="canonical" href="https://hatch.patagoniabim.cl/">
+    <meta name="theme-color" content="#000000">
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <meta property="og:type" content="website">
+    <meta property="og:locale" content="es_CL">
+    <meta property="og:site_name" content="PatagoniaBIM">
+    <meta property="og:title" content="HATCH.it — Patrones de relleno para Revit">
+    <meta property="og:description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <meta property="og:url" content="https://hatch.patagoniabim.cl/">
+    <meta property="og:image" content="https://www.patagoniabim.cl/og-image.png">
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="HATCH.it — Patrones de relleno para Revit">
+    <meta name="twitter:description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <meta name="twitter:image" content="https://www.patagoniabim.cl/og-image.png">
+    <script type="application/ld+json">
+    [
+      {
+        "@context": "https://schema.org",
+        "@type": "WebApplication",
+        "name": "HATCH.it",
+        "url": "https://hatch.patagoniabim.cl/",
+        "applicationCategory": "DesignApplication",
+        "operatingSystem": "Any (navegador web)",
+        "description": "Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit mediante visión computacional.",
+        "offers": { "@type": "Offer", "price": "0", "priceCurrency": "CLP" },
+        "author": { "@type": "Organization", "@id": "https://www.patagoniabim.cl/#organization", "name": "PatagoniaBIM", "url": "https://www.patagoniabim.cl/" }
+      },
+      {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        "mainEntity": [
+          {
+            "@type": "Question",
+            "name": "¿Qué es HATCH.it?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "HATCH.it es una herramienta gratuita de PatagoniaBIM que convierte dibujos DXF o imágenes (PNG, JPG) en patrones de relleno (.PAT) importables en Revit, usando visión computacional."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Cómo importo un patrón generado en Revit?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "En Revit ve a Manage → Additional Settings → Fill Patterns → Import y selecciona el archivo .PAT generado por HATCH.it. El patrón quedará disponible en la lista de patrones de relleno."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿Qué formatos acepta HATCH.it?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes elegir entre 4 algoritmos de detección: Hough, LSD, FastLineDetector y Contornos."
+            }
+          },
+          {
+            "@type": "Question",
+            "name": "¿HATCH.it es gratuito?",
+            "acceptedAnswer": {
+              "@type": "Answer",
+              "text": "Sí. HATCH.it es una herramienta gratuita de PatagoniaBIM, disponible en el navegador sin instalación."
+            }
+          }
+        ]
+      }
+    ]
+    </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=4">
+    <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -64,17 +131,6 @@
     </svg>
 
     <canvas id="grid-canvas" aria-hidden="true"></canvas>
-
-    <div id="cursor-dot" aria-hidden="true"></div>
-    <div id="cursor-ring" aria-hidden="true"></div>
-
-    <div id="loader" aria-hidden="true">
-        <div class="loader-inner">
-            <span class="loader-mark"><svg class="icon"><use href="#i-grid"/></svg></span>
-            <span class="loader-name">HATCH<span class="loader-dot">.it</span></span>
-            <span class="loader-bar"><span class="loader-bar-fill"></span></span>
-        </div>
-    </div>
 
     <header class="site-header">
         <a href="#top" class="logo" data-cursor>
@@ -303,10 +359,6 @@
                     </div>
                 </div>
 
-                <button id="convert-btn" class="convert-btn" disabled data-cursor>
-                    <span data-i18n="btn.convert">GENERAR PATRÓN</span>
-                    <svg class="icon"><use href="#i-arrow"/></svg>
-                </button>
 
                 <div id="alert-box" class="alert-box hidden">
                     <svg class="icon"><use href="#i-alert"/></svg>
@@ -323,7 +375,10 @@
                         <div class="result-card">
                             <div class="result-head">
                                 <span class="result-title" data-i18n="res.preview">SIMULACIÓN REVIT</span>
-                                <span class="result-badge" data-i18n="res.tile3">3x3 TILES</span>
+                                <div class="result-tags">
+                                    <span class="live-indicator" data-i18n="res.live">EN VIVO</span>
+                                    <span class="result-badge" data-i18n="res.tile3">3x3 TILES</span>
+                                </div>
                             </div>
                             <div class="preview-wrap">
                                 <img id="preview-img" alt="Revit pattern preview" class="preview-img">
@@ -369,13 +424,39 @@
             </div>
         </section>
 
+        <section class="faq-section reveal">
+            <h2 class="faq-title">Preguntas frecuentes sobre HATCH.it</h2>
+            <div class="faq-card glass">
+                <details class="faq-item" open>
+                    <summary class="faq-question"><h3>¿Qué es HATCH.it?</h3></summary>
+                    <p class="faq-answer">HATCH.it es una herramienta gratuita de PatagoniaBIM que convierte dibujos DXF o imágenes (PNG, JPG) en patrones de relleno (.PAT) importables en Revit, utilizando visión computacional. El procesamiento se realiza en el navegador y el archivo generado se puede descargar e importar directamente en Revit.</p>
+                </details>
+                <details class="faq-item">
+                    <summary class="faq-question"><h3>¿Cómo importo un patrón generado en Revit?</h3></summary>
+                    <p class="faq-answer">En Revit ve a Manage → Additional Settings → Fill Patterns → Import y selecciona el archivo .PAT generado por HATCH.it. El patrón quedará disponible en la lista de patrones de relleno del proyecto.</p>
+                </details>
+                <details class="faq-item">
+                    <summary class="faq-question"><h3>¿Qué formatos acepta HATCH.it?</h3></summary>
+                    <p class="faq-answer">HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes elegir entre 4 algoritmos de detección de líneas: Hough, LSD, FastLineDetector y Contornos, con controles de pre-procesamiento como CLAHE, skeleton, black-hat y auto-Canny.</p>
+                </details>
+                <details class="faq-item">
+                    <summary class="faq-question"><h3>¿HATCH.it es gratuito?</h3></summary>
+                    <p class="faq-answer">Sí. HATCH.it es una herramienta gratuita de PatagoniaBIM, disponible en el navegador sin necesidad de instalación.</p>
+                </details>
+            </div>
+        </section>
+
         <footer class="site-footer reveal">
-            <span>HATCH.it — <span data-i18n="footer.by">por</span> PatagoniaBIM</span>
+            <div class="footer-copy">
+                <span>© 2026 <a href="https://www.patagoniabim.cl/" class="footer-brand" data-cursor target="_blank" rel="noopener">PatagoniaBIM</a>. <span data-i18n="footer.rights">Todos los derechos reservados.</span></span>
+                <span class="footer-sep">|</span>
+                <span><span data-i18n="footer.design">Diseño WEB</span> <a href="https://www.instagram.com/renderman.cl" class="footer-designer" data-cursor target="_blank" rel="noopener">@Christian Avila</a></span>
+            </div>
             <span class="footer-hint" data-i18n="footer.revit">REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT</span>
         </footer>
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=7"></script>
+    <script src="js/main.js?v=11"></script>
 </body>
 </html>

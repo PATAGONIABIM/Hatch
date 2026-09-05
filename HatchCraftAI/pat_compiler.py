@@ -151,12 +151,16 @@ def compile_carrier_entries(angle, member_segments, tile_w, tile_h,
 
     lines = []
     ext = tile_w * abs(nx) + tile_h * abs(ny)
+    # The member segments are inside or immediately adjacent to the tile [0, tile_w] x [0, tile_h].
+    # Periodic tiling shifts (da, db) only intersect the tile window for immediate neighbors (da, db in [-2, 2]).
+    # When nx or ny is near zero (horizontal or vertical lines), ext / abs(tile * n) blows up to tens of thousands,
+    # causing catastrophic O(N^2) lockups. Clamping da_span and db_span to 2 guarantees correctness in O(1) time.
     if abs(tile_w * nx) > EPS:
-        da_span = max(1, int(math.ceil(ext / abs(tile_w * nx))))
+        da_span = min(2, max(1, int(math.ceil(ext / abs(tile_w * nx)))))
     else:
         da_span = 1
     if abs(tile_h * ny) > EPS:
-        db_span = max(1, int(math.ceil(ext / abs(tile_h * ny))))
+        db_span = min(2, max(1, int(math.ceil(ext / abs(tile_h * ny)))))
     else:
         db_span = 1
     for (x1, y1, x2, y2) in member_segments:

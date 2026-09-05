@@ -45,6 +45,8 @@
             'filter.none': 'Ninguno',
             'btn.convert': 'GENERAR PATRÓN',
             'btn.converting': 'PROCESANDO...',
+            'btn.updating': 'ACTUALIZANDO...',
+            'res.live': 'EN VIVO',
             'res.preview': 'SIMULACIÓN REVIT',
             'res.tile3': '3x3 TILES',
             'res.scale': 'ESCALA',
@@ -54,7 +56,8 @@
             'res.copy': 'COPIAR',
             'res.copied': 'COPIADO',
             'res.download': 'DESCARGAR .PAT',
-            'footer.by': 'por',
+            'footer.rights': 'Todos los derechos reservados.',
+            'footer.design': 'Diseño WEB',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
             'err.upload': 'Sube un archivo para continuar',
             'err.network': 'No se pudo conectar con el servidor. Intenta de nuevo.',
@@ -101,6 +104,8 @@
             'filter.none': 'None',
             'btn.convert': 'GENERATE PATTERN',
             'btn.converting': 'PROCESSING...',
+            'btn.updating': 'UPDATING...',
+            'res.live': 'LIVE',
             'res.preview': 'REVIT SIMULATION',
             'res.tile3': '3x3 TILES',
             'res.scale': 'SCALE',
@@ -110,7 +115,8 @@
             'res.copy': 'COPY',
             'res.copied': 'COPIED',
             'res.download': 'DOWNLOAD .PAT',
-            'footer.by': 'by',
+            'footer.rights': 'All rights reserved.',
+            'footer.design': 'Web Design',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
             'err.upload': 'Upload a file to continue',
             'err.network': 'Could not reach the server. Try again.',
@@ -144,12 +150,29 @@
         input.style.setProperty('--fill', ((val - min) / (max - min)) * 100 + '%');
     }
 
+    function formatSliderOutput(id, value) {
+        if (id === 'ctl-offx' || id === 'ctl-offy') {
+            return (parseFloat(value) / 100).toFixed(2);
+        }
+        if (id === 'ctl-p2cont') {
+            return (parseFloat(value) / 1000).toFixed(3);
+        }
+        if (id === 'ctl-claheclip') {
+            return parseFloat(value).toFixed(1);
+        }
+        if (id === 'scale-slider') {
+            return (parseFloat(value) / 10).toFixed(1) + 'x';
+        }
+        return value;
+    }
+
     $$('input[type="range"]').forEach((input) => {
         const out = document.querySelector(`output[for="${input.id}"]`);
         setFill(input);
+        if (out) out.value = formatSliderOutput(input.id, input.value);
         input.addEventListener('input', () => {
             setFill(input);
-            if (out) out.value = input.value;
+            if (out) out.value = formatSliderOutput(input.id, input.value);
         });
     });
 
@@ -168,81 +191,8 @@
         requestAnimationFrame(raf);
     }
 
-    /* ============ Loader ============ */
-    const loader = $('#loader');
-    const loaderBar = $('.loader-bar-fill');
-    const MIN_LOAD = 1400;
-    const FADE_MS = 1200;
-    const pendingReveals = [];
-
-    function easeInOut(p) {
-        return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
-    }
-
-    function runLoaderBar() {
-        const t0 = performance.now();
-        function frame(now) {
-            const p = Math.min(1, (now - t0) / MIN_LOAD);
-            loaderBar.style.transform = 'scaleX(' + (1 - Math.pow(1 - p, 3)) + ')';
-            if (p < 1) requestAnimationFrame(frame);
-        }
-        requestAnimationFrame(frame);
-    }
-
-    function hideLoader() {
-        document.body.classList.add('is-loaded');
-        pendingReveals.forEach((el, i) => {
-            el.style.transitionDelay = Math.min(i * 140, 560) + 'ms';
-            el.classList.add('is-visible');
-        });
-        pendingReveals.length = 0;
-        loader.classList.add('is-done');
-        const t0 = performance.now();
-        function fade(now) {
-            const p = Math.min(1, (now - t0) / FADE_MS);
-            loader.style.opacity = String(1 - easeInOut(p));
-            if (p < 1) {
-                requestAnimationFrame(fade);
-            } else {
-                loader.style.opacity = '0';
-                loader.style.visibility = 'hidden';
-                loader.style.pointerEvents = 'none';
-                if (window.parent && window.parent !== window) {
-                    window.parent.postMessage({ type: 'app-ready' }, '*');
-                }
-            }
-        }
-        requestAnimationFrame(fade);
-    }
-
-    runLoaderBar();
-    Promise.all([new Promise((r) => setTimeout(r, MIN_LOAD)), window.loadEvent || Promise.resolve()]).then(hideLoader);
-
-    /* ============ Custom cursor ============ */
-    if (!reducedMotion && window.matchMedia('(hover: hover)').matches) {
-        const dot = $('#cursor-dot');
-        const ring = $('#cursor-ring');
-        let mx = innerWidth / 2, my = innerHeight / 2;
-        let rx = mx, ry = my;
-
-        document.addEventListener('mousemove', (e) => {
-            mx = e.clientX;
-            my = e.clientY;
-            dot.style.transform = `translate(${mx}px, ${my}px)`;
-        });
-
-        (function loop() {
-            rx += (mx - rx) * 0.14;
-            ry += (my - ry) * 0.14;
-            ring.style.transform = `translate(${rx}px, ${ry}px)`;
-            requestAnimationFrame(loop);
-        })();
-
-        document.addEventListener('mouseover', (e) => {
-            const interactive = e.target.closest('a, button, input, select, label, .dropzone');
-            ring.classList.toggle('is-hover', !!interactive);
-        });
-    }
+    /* ============ Page init ============ */
+    document.body.classList.add('is-loaded');
 
     /* ============ Grid canvas background ============ */
     const canvas = $('#grid-canvas');
@@ -300,14 +250,17 @@
     drawGrid();
     addEventListener('resize', () => { sizeCanvas(); drawGrid(); });
     if (!reducedMotion) {
+        let gridFrame = null;
         document.addEventListener('mousemove', (e) => {
             mouse.x = e.clientX;
             mouse.y = e.clientY;
+            if (!gridFrame) {
+                gridFrame = requestAnimationFrame(() => {
+                    drawGrid();
+                    gridFrame = null;
+                });
+            }
         });
-        (function gridLoop() {
-            drawGrid();
-            requestAnimationFrame(gridLoop);
-        })();
     }
 
     /* ============ Lang switch ============ */
@@ -396,17 +349,25 @@
             thumb.removeAttribute('src');
         }
         dz.classList.add('has-file');
-        convertBtn.disabled = false;
-        hideResults();
+        // Auto-generación inmediata al cargar archivo
+        convert({ initial: true, shouldScroll: true });
     }
 
     function clearFile() {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+        }
+        if (activeAbortController) {
+            activeAbortController.abort();
+            activeAbortController = null;
+        }
         currentFile = null;
         fileInput.value = '';
         dz.classList.remove('has-file');
         $('.dropzone-file').classList.add('hidden');
-        convertBtn.disabled = true;
         hideResults();
+        hideAlert();
     }
 
     function formatBytes(bytes) {
@@ -450,25 +411,62 @@
         const defaults = { hough: 20, lsd: 15, fld: 20, contour: 20 };
         const p1 = $('#ctl-p1');
         p1.value = defaults[m];
-        $('output[for="ctl-p1"]').value = p1.value;
+        const outP1 = $('output[for="ctl-p1"]');
+        if (outP1) outP1.value = formatSliderOutput('ctl-p1', p1.value);
         setFill(p1);
         p1Label.textContent = m === 'contour'
             ? (lang === 'es' ? 'LONGITUD MÍN. CONTORNO' : 'MIN. CONTOUR LENGTH')
             : t('ctl.minlen');
+        if (currentFile && mode === 'image') {
+            scheduleConvert(0);
+        }
     }
     methodSel.addEventListener('change', syncMethod);
     syncMethod();
 
-    /* ============ Convert ============ */
-    const convertBtn = $('#convert-btn');
+    /* ============ Live reactive updates & Convert ============ */
     const alertBox = $('#alert-box');
     const alertMsg = $('.alert-msg');
     const results = $('#results');
+    let debounceTimer = null;
+    let activeAbortController = null;
+    let latestRequestId = 0;
 
-    function showError(msg) {
+    function scheduleConvert(delay = 140) {
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+        }
+        if (!currentFile || mode !== 'image') return;
+        if (delay === 0) {
+            convert({ isLive: true, shouldScroll: false });
+        } else {
+            debounceTimer = setTimeout(() => {
+                convert({ isLive: true, shouldScroll: false });
+            }, delay);
+        }
+    }
+
+    // Listeners reactivos para todos los controles de detección, pre-procesamiento y escala
+    controls.addEventListener('input', (e) => {
+        if (!currentFile || mode !== 'image') return;
+        if (e.target.matches('input[type="range"]')) {
+            scheduleConvert(140);
+        }
+    });
+
+    controls.addEventListener('change', (e) => {
+        if (!currentFile || mode !== 'image') return;
+        // Checkboxes, selects y fin de arrastre de sliders
+        scheduleConvert(0);
+    });
+
+    function showError(msg, { keepResults = false } = {}) {
         alertMsg.textContent = msg;
         alertBox.classList.remove('hidden');
-        hideResults();
+        if (!keepResults) {
+            hideResults();
+        }
     }
 
     function hideAlert() {
@@ -479,16 +477,29 @@
         results.classList.add('hidden');
     }
 
-    async function convert() {
+    async function convert(opts = {}) {
+        const initial = !!opts.initial;
+        const isLive = !!opts.isLive;
+        const shouldScroll = !!opts.shouldScroll;
+        const isManual = !!opts.isManual;
+
         if (!currentFile) {
             showError(t('err.upload'));
             return;
         }
+
+        if (debounceTimer) {
+            clearTimeout(debounceTimer);
+            debounceTimer = null;
+        }
+
         hideAlert();
-        hideResults();
-        convertBtn.disabled = true;
-        convertBtn.classList.add('is-loading');
-        $('.convert-btn span').textContent = t('btn.converting');
+
+        if (initial) {
+            hideResults();
+        } else {
+            results.classList.add('is-updating');
+        }
 
         const fd = new FormData();
         fd.append('file', currentFile);
@@ -532,28 +543,41 @@
 
         const endpoint = mode === 'dxf' ? '/api/convert/dxf' : '/api/convert/image';
 
+        if (activeAbortController) {
+            activeAbortController.abort();
+        }
+        activeAbortController = new AbortController();
+        const reqId = ++latestRequestId;
+
         try {
-            const res = await fetch(endpoint, { method: 'POST', body: fd });
+            const res = await fetch(endpoint, {
+                method: 'POST',
+                body: fd,
+                signal: activeAbortController.signal,
+            });
+            if (reqId !== latestRequestId) return;
             const json = await res.json();
             if (!res.ok) {
                 throw new Error(json.error || t('err.network'));
             }
-            renderResults(json);
+            renderResults(json, { initial, shouldScroll: shouldScroll || isManual });
         } catch (err) {
-            showError(err.message || t('err.network'));
+            if (err.name === 'AbortError') {
+                return;
+            }
+            if (reqId !== latestRequestId) return;
+            showError(err.message || t('err.network'), { keepResults: !initial && !!lastPat });
         } finally {
-            convertBtn.classList.remove('is-loading');
-            $('.convert-btn span').textContent = t('btn.convert');
-            convertBtn.disabled = false;
+            if (reqId === latestRequestId) {
+                results.classList.remove('is-updating');
+            }
         }
     }
-
-    convertBtn.addEventListener('click', convert);
 
     /* ============ Results ============ */
     let lastPat = null;
 
-    function renderResults(json) {
+    function renderResults(json, { initial = false, shouldScroll = false } = {}) {
         lastPat = json.pat_content;
 
         $('#stats').textContent = json.stats || '';
@@ -570,14 +594,23 @@
         $('#debug-img').src = json.debug || '';
 
         const scaleSlider = $('#scale-slider');
-        scaleSlider.value = 10;
-        $('output[for="scale-slider"]').value = '1.0x';
-        applyPreviewScale(1.0);
+        if (initial || results.classList.contains('hidden')) {
+            scaleSlider.value = 10;
+            $('output[for="scale-slider"]').value = '1.0x';
+            applyPreviewScale(1.0);
+        } else {
+            const curScale = parseFloat(scaleSlider.value) / 10;
+            applyPreviewScale(curScale);
+        }
 
         $('#pat-code').value = json.pat_content;
 
+        const wasHidden = results.classList.contains('hidden');
         results.classList.remove('hidden');
-        results.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
+
+        if (shouldScroll || (wasHidden && !initial)) {
+            results.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
+        }
     }
 
     function applyPreviewScale(scale) {
