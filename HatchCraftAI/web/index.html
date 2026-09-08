@@ -75,7 +75,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=9">
+    <link rel="stylesheet" href="css/style.css?v=10">
 </head>
 <body>
 
@@ -132,10 +132,21 @@
 
     <canvas id="grid-canvas" aria-hidden="true"></canvas>
 
+    <div id="loader" aria-hidden="true">
+        <div class="loader-inner">
+            <span class="loader-mark"><svg class="icon"><use href="#i-grid"/></svg></span>
+            <span class="loader-name">HATCH<span class="loader-dot">.it</span></span>
+            <span class="loader-bar"><span class="loader-bar-fill" id="loader-bar-fill"></span></span>
+        </div>
+    </div>
+
     <header class="site-header">
         <a href="#top" class="logo" data-cursor>
             <span class="logo-mark"><svg class="icon"><use href="#i-grid"/></svg></span>
             <span class="logo-name">HATCH<span class="logo-dot">.it</span></span>
+        </a>
+        <a href="https://www.patagoniabim.cl" class="site-x" id="site-x" aria-label="Volver a PatagoniaBIM" data-cursor>
+            <svg class="icon"><use href="#i-x"/></svg>
         </a>
     </header>
 
@@ -457,6 +468,6 @@
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=11"></script>
+    <script src="js/main.js?v=12"></script>
 </body>
 </html>

@@ -191,8 +191,84 @@
         requestAnimationFrame(raf);
     }
 
-    /* ============ Page init ============ */
-    document.body.classList.add('is-loaded');
+    /* ============ Loader ============ */
+    const loader = $('#loader');
+    const loaderBar = $('#loader-bar-fill') || $('.loader-bar-fill');
+    if (loader && loaderBar) {
+        const MIN_LOAD = 1400;
+        const FADE_MS = 1200;
+        const start = performance.now();
+        let faded = false;
+
+        function easeOutCubic(t) {
+            return 1 - Math.pow(1 - t, 3);
+        }
+
+        function easeInOutQuad(p) {
+            return p < 0.5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2;
+        }
+
+        function frame(now) {
+            const p = Math.min((now - start) / MIN_LOAD, 1);
+            loaderBar.style.transform = 'scaleX(' + easeOutCubic(p).toFixed(4) + ')';
+            if (p < 1) {
+                requestAnimationFrame(frame);
+            } else {
+                beginFade();
+            }
+        }
+
+        function beginFade() {
+            if (faded) return;
+            faded = true;
+            document.body.classList.add('is-loaded');
+            const fstart = performance.now();
+            (function fadeStep(now) {
+                const p = Math.min((now - fstart) / FADE_MS, 1);
+                loader.style.opacity = (1 - easeInOutQuad(p)).toFixed(4);
+                if (p < 1) {
+                    requestAnimationFrame(fadeStep);
+                } else {
+                    loader.style.opacity = '0';
+                    loader.style.display = 'none';
+                    if (window.parent && window.parent !== window) {
+                        window.parent.postMessage({ type: 'app-ready' }, '*');
+                    }
+                }
+            })(fstart);
+        }
+
+        const loadDone = new Promise((resolve) => {
+            if (document.readyState === 'complete') {
+                resolve();
+            } else {
+                window.addEventListener('load', resolve, { once: true });
+            }
+        });
+
+        Promise.all([
+            new Promise((r) => setTimeout(r, MIN_LOAD)),
+            loadDone,
+        ]).then(beginFade);
+
+        requestAnimationFrame(frame);
+    } else {
+        document.body.classList.add('is-loaded');
+        if (window.parent && window.parent !== window) {
+            window.parent.postMessage({ type: 'app-ready' }, '*');
+        }
+    }
+
+    /* ============ Close / Return to PatagoniaBIM ============ */
+    const siteX = $('#site-x');
+    if (siteX) {
+        siteX.addEventListener('click', (e) => {
+            if (window.parent && window.parent !== window) {
+                e.preventDefault();
+                window.parent.postMessage({ type: 'close-tool' }, '*');
+            }
+        });
+    }
 
     /* ============ Grid canvas background ============ */
     const canvas = $('#grid-canvas');
