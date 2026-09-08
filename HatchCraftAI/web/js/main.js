@@ -262,12 +262,9 @@
     /* ============ Close / Return to PatagoniaBIM ============ */
     const siteX = $('#site-x');
     if (siteX) {
-        siteX.addEventListener('click', (e) => {
-            if (window.parent && window.parent !== window) {
-                e.preventDefault();
-                window.parent.postMessage({ type: 'close-tool' }, '*');
-            }
-        });
+        if (window.self !== window.top) {
+            siteX.style.display = 'none';
+        }
     }
 
     /* ============ Grid canvas background ============ */
