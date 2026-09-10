@@ -142,6 +142,7 @@
     const $ = (sel) => document.querySelector(sel);
     const $$ = (sel) => Array.from(document.querySelectorAll(sel));
     const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pendingReveals = [];
 
     function setFill(input) {
         const min = parseFloat(input.min);
@@ -159,9 +160,6 @@
         }
         if (id === 'ctl-claheclip') {
             return parseFloat(value).toFixed(1);
-        }
-        if (id === 'scale-slider') {
-            return (parseFloat(value) / 10).toFixed(1) + 'x';
         }
         return value;
     }
@@ -222,6 +220,11 @@
             if (faded) return;
             faded = true;
             document.body.classList.add('is-loaded');
+            pendingReveals.forEach((el, i) => {
+                el.style.transitionDelay = Math.min(i * 140, 560) + 'ms';
+                el.classList.add('is-visible');
+            });
+            pendingReveals.length = 0;
             const fstart = performance.now();
             (function fadeStep(now) {
                 const p = Math.min((now - fstart) / FADE_MS, 1);
@@ -631,7 +634,8 @@
             if (reqId !== latestRequestId) return;
             const json = await res.json();
             if (!res.ok) {
-                throw new Error(json.error || t('err.network'));
+                const msg = (json.detail && (json.detail.error || (typeof json.detail === 'string' ? json.detail : null))) || json.error || t('err.network');
+                throw new Error(msg);
             }
             renderResults(json, { initial, shouldScroll: shouldScroll || isManual });
         } catch (err) {
@@ -666,16 +670,6 @@
         $('#preview-img').src = json.preview || '';
         $('#debug-img').src = json.debug || '';
 
-        const scaleSlider = $('#scale-slider');
-        if (initial || results.classList.contains('hidden')) {
-            scaleSlider.value = 10;
-            $('output[for="scale-slider"]').value = '1.0x';
-            applyPreviewScale(1.0);
-        } else {
-            const curScale = parseFloat(scaleSlider.value) / 10;
-            applyPreviewScale(curScale);
-        }
-
         $('#pat-code').value = json.pat_content;
 
         const wasHidden = results.classList.contains('hidden');
@@ -686,40 +680,40 @@
         }
     }
 
-    function applyPreviewScale(scale) {
-        $('#preview-img').style.transform = `scale(${scale})`;
+    const copyBtn = $('#copy-btn');
+    if (copyBtn) {
+        copyBtn.addEventListener('click', async () => {
+            if (!lastPat) return;
+            try {
+                await navigator.clipboard.writeText(lastPat);
+            } catch (_) {
+                const ta = $('#pat-code');
+                if (ta) {
+                    ta.select();
+                    document.execCommand('copy');
+                }
+            }
+            const label = $('#copy-btn span');
+            if (label) {
+                label.textContent = t('res.copied');
+                setTimeout(() => { label.textContent = t('res.copy'); }, 1600);
+            }
+        });
     }
 
-    $('#scale-slider').addEventListener('input', (e) => {
-        const scale = parseFloat(e.target.value) / 10;
-        $('output[for="scale-slider"]').value = scale.toFixed(1) + 'x';
-        applyPreviewScale(scale);
-    });
-
-    $('#copy-btn').addEventListener('click', async () => {
-        if (!lastPat) return;
-        try {
-            await navigator.clipboard.writeText(lastPat);
-        } catch (_) {
-            const ta = $('#pat-code');
-            ta.select();
-            document.execCommand('copy');
-        }
-        const label = $('#copy-btn span');
-        label.textContent = t('res.copied');
-        setTimeout(() => { label.textContent = t('res.copy'); }, 1600);
-    });
-
-    $('#download-btn').addEventListener('click', () => {
-        if (!lastPat) return;
-        const blob = new Blob([lastPat], { type: 'text/plain' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'HATCH.it.pat';
-        a.click();
-        URL.revokeObjectURL(url);
-    });
+    const downloadBtn = $('#download-btn');
+    if (downloadBtn) {
+        downloadBtn.addEventListener('click', () => {
+            if (!lastPat) return;
+            const blob = new Blob([lastPat], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'HATCH.it.pat';
+            a.click();
+            URL.revokeObjectURL(url);
+        });
+    }
 
     /* ============ Reveals ============ */
     const io = new IntersectionObserver((entries) => {

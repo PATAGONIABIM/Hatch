@@ -75,7 +75,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=10">
+    <link rel="stylesheet" href="css/style.css?v=11">
 </head>
 <body>
 
@@ -385,6 +385,17 @@
                     <div class="results-grid">
                         <div class="result-card">
                             <div class="result-head">
+                                <span class="result-title" data-i18n="res.compare">COMPARATIVA</span>
+                                <div class="result-tags">
+                                    <span class="result-badge" data-i18n="res.detected">LÍNEAS DETECTADAS</span>
+                                </div>
+                            </div>
+                            <div class="compare-wrap">
+                                <img id="debug-img" alt="Detected lines" class="debug-img">
+                            </div>
+                        </div>
+                        <div class="result-card">
+                            <div class="result-head">
                                 <span class="result-title" data-i18n="res.preview">SIMULACIÓN REVIT</span>
                                 <div class="result-tags">
                                     <span class="live-indicator" data-i18n="res.live">EN VIVO</span>
@@ -393,24 +404,6 @@
                             </div>
                             <div class="preview-wrap">
                                 <img id="preview-img" alt="Revit pattern preview" class="preview-img">
-                            </div>
-                            <div class="preview-scale">
-                                <label class="field-label" for="scale-slider" data-i18n="res.scale">ESCALA</label>
-                                <div class="slider-row">
-                                    <input type="range" id="scale-slider" min="1" max="100" step="1" value="10">
-                                    <output class="slider-val" for="scale-slider">1.0x</output>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="result-card">
-                            <div class="result-head">
-                                <span class="result-title" data-i18n="res.compare">COMPARATIVA</span>
-                            </div>
-                            <div class="compare-wrap">
-                                <figure class="compare-fig">
-                                    <img id="debug-img" alt="Detected lines" class="debug-img">
-                                    <figcaption data-i18n="res.detected">Líneas detectadas</figcaption>
-                                </figure>
                             </div>
                         </div>
                     </div>
@@ -468,6 +461,6 @@
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=13"></script>
+    <script src="js/main.js?v=16"></script>
 </body>
 </html>
