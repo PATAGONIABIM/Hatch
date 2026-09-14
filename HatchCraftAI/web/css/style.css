@@ -393,21 +393,40 @@ body {
     letter-spacing: 0.05em;
 }
 
-.dropzone-btn {
-    margin-top: 10px;
-    padding: 10px 28px;
-    border: 1px solid var(--border-strong);
-    border-radius: 999px;
-    font-size: 0.78rem;
-    font-weight: 500;
-    letter-spacing: 0.25em;
-    color: var(--text);
-    transition: all 0.3s var(--ease);
+.dropzone-plus {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: auto;
+    height: auto;
+    border: none;
+    background: transparent;
+    color: var(--accent);
+    margin-top: 16px;
+    cursor: pointer;
+    transition: transform 0.3s var(--ease);
 }
 
-.dropzone:hover .dropzone-btn {
-    border-color: var(--accent);
-    color: var(--accent);
+.dropzone-plus .plus-icon {
+    width: 42px;
+    height: 42px;
+    stroke: var(--accent);
+    transition: transform 0.3s var(--ease), stroke 0.3s var(--ease), filter 0.3s var(--ease);
+}
+
+.dropzone:hover .dropzone-plus,
+.dropzone-plus:hover {
+    border: none;
+    background: transparent;
+    box-shadow: none;
+    transform: scale(1.12);
+}
+
+.dropzone:hover .dropzone-plus .plus-icon,
+.dropzone-plus:hover .plus-icon {
+    stroke: #ffffff;
+    filter: drop-shadow(0 0 16px rgba(255, 215, 0, 0.6));
+    transform: rotate(90deg);
 }
 
 .dropzone-file {
@@ -416,6 +435,7 @@ body {
     gap: 14px;
     width: 100%;
     max-width: 560px;
+    margin: 18px auto 0;
     padding: 14px 18px;
     border: 1px solid var(--border);
     border-radius: 12px;
@@ -477,10 +497,124 @@ body {
     display: none !important;
 }
 
-/* ---------- Controls ---------- */
-.controls {
+/* ---------- Pattern Type (00) ---------- */
+.pattern-type-group {
     margin-top: 28px;
     border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+}
+
+.pattern-type-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 18px 4px;
+    box-sizing: border-box;
+}
+
+.pattern-type-brand {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.pattern-type-options {
+    display: flex;
+    align-items: center;
+    gap: 28px;
+}
+
+.circular-check {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    cursor: pointer;
+    user-select: none;
+    position: relative;
+}
+
+.circular-check input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+}
+
+.circular-check .check-circle {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.03);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s var(--ease);
+    position: relative;
+    flex-shrink: 0;
+}
+
+.circular-check .check-circle::after {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+    transform: scale(0);
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.circular-check input[type="radio"]:checked + .check-circle {
+    border-color: var(--accent);
+    background: rgba(255, 215, 0, 0.12);
+    box-shadow: 0 0 12px rgba(255, 215, 0, 0.35);
+}
+
+.circular-check input[type="radio"]:checked + .check-circle::after {
+    transform: scale(1);
+}
+
+.circular-check .check-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    letter-spacing: 0.2em;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    transition: color 0.25s var(--ease);
+}
+
+.circular-check input[type="radio"]:checked ~ .check-label {
+    color: var(--text);
+    font-weight: 600;
+}
+
+.circular-check:hover .check-circle {
+    border-color: var(--accent);
+}
+
+.circular-check:hover .check-label {
+    color: var(--text);
+}
+
+@media (max-width: 560px) {
+    .pattern-type-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 12px;
+    }
+    .pattern-type-options {
+        padding-left: calc(0.72rem * 2 + 16px);
+        gap: 20px;
+    }
+}
+
+/* ---------- Controls ---------- */
+.controls {
+    margin-top: 0;
+    border-top: none;
 }
 
 .controls-group {
@@ -788,6 +922,7 @@ select:focus {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 18px;
+    align-items: start;
 }
 
 @media (max-width: 860px) {
@@ -826,7 +961,11 @@ select:focus {
     color: var(--accent);
     border: 1px solid rgba(255, 215, 0, 0.4);
     border-radius: 999px;
-    padding: 4px 12px;
+    padding: 0 12px;
+    height: 26px;
+    display: inline-flex;
+    align-items: center;
+    box-sizing: border-box;
 }
 
 .result-tags {
@@ -900,6 +1039,38 @@ select:focus {
 
 .code-card {
     margin-top: 18px;
+}
+
+.sim-actions-bar {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 14px;
+    min-height: 46px;
+    box-sizing: border-box;
+}
+
+.sim-actions-bar .gold-btn {
+    flex: 1;
+    height: 46px;
+    justify-content: center;
+    padding: 0 16px;
+    font-size: 0.72rem;
+    letter-spacing: 0.18em;
+    white-space: nowrap;
+    box-sizing: border-box;
+}
+
+@media (max-width: 680px) {
+    .sim-actions-bar {
+        flex-direction: column;
+        min-height: auto;
+        gap: 8px;
+    }
+    .sim-actions-bar .gold-btn {
+        width: 100%;
+        height: 42px;
+    }
 }
 
 .result-actions {
@@ -1104,4 +1275,208 @@ select:focus {
 .footer-sep {
     color: var(--border);
     margin: 0 4px;
+}
+
+
+/* ============ Draw panel (modo DIBUJAR) ============ */
+.draw-panel {
+    display: block;
+    border: 1px dashed var(--border-strong);
+    border-radius: 16px;
+    background: rgba(255, 255, 255, 0.02);
+    padding: 16px;
+    transition: border-color 0.3s var(--ease), background 0.3s var(--ease);
+}
+
+.draw-panel:hover {
+    border-color: var(--accent);
+    background: rgba(255, 215, 0, 0.04);
+}
+
+.draw-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 14px;
+    margin-bottom: 12px;
+}
+
+.draw-btn {
+    appearance: none;
+    border: 1px solid var(--border-strong);
+    border-radius: 999px;
+    background: transparent;
+    color: var(--text-dim);
+    font-family: var(--font);
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 6px 14px;
+    cursor: pointer;
+    transition: color 0.25s var(--ease), border-color 0.25s var(--ease), background 0.25s var(--ease);
+}
+
+.draw-btn:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    background: rgba(255, 215, 0, 0.06);
+}
+
+.draw-tile-field {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.draw-tile-field .field-label {
+    margin: 0;
+}
+
+.draw-tile-field input[type="number"] {
+    width: 84px;
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--font);
+    font-size: 0.85rem;
+    padding: 6px 8px;
+}
+
+.draw-tile-field input[type="number"]:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+#draw-canvas {
+    display: block;
+    width: 100%;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.35);
+    cursor: crosshair;
+    touch-action: none;
+}
+
+.draw-hint {
+    margin: 10px 2px 0;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-align: center;
+    color: var(--text-faint);
+}
+
+/* ============ CAD Interactive Vector Canvas & Toolbar ============ */
+.cad-result-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+    min-height: 28px;
+}
+
+.cad-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.cad-tools {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.cad-aux {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: 2px;
+    padding-left: 6px;
+    border-left: 1px solid var(--border-strong);
+}
+
+.cad-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 3px 10px;
+    height: 26px;
+    box-sizing: border-box;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: rgba(255, 255, 255, 0.03);
+    color: var(--text-dim);
+    font-family: var(--font);
+    font-size: 0.68rem;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    line-height: 1;
+}
+
+.cad-btn.cad-btn-icon {
+    width: 26px;
+    height: 26px;
+    padding: 0;
+}
+
+.cad-btn .icon {
+    width: 13px;
+    height: 13px;
+    stroke-width: 1.8;
+}
+
+.cad-btn:hover {
+    color: var(--text);
+    border-color: var(--border-strong);
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.cad-btn.is-active {
+    color: #000000;
+    background: var(--accent);
+    border-color: var(--accent);
+    font-weight: 700;
+}
+
+.cad-btn.is-active .icon {
+    stroke: #000000;
+}
+
+.cad-btn-action:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+.cad-hint-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: rgba(255, 215, 0, 0.04);
+    border: 1px solid rgba(255, 215, 0, 0.12);
+    margin-top: 14px;
+    margin-bottom: 0;
+    font-size: 0.74rem;
+    color: var(--text-dim);
+    letter-spacing: 0.03em;
+    min-height: 46px;
+    line-height: 1.45;
+    transition: all 0.25s var(--ease);
+    box-sizing: border-box;
+}
+
+#cad-canvas {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+    touch-action: none;
+    z-index: 2;
 }

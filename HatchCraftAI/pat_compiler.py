@@ -238,14 +238,22 @@ def compile_carrier_entries(angle, member_segments, tile_w, tile_h,
 def compile_pat(segments, name="HATCHCRAFT", desc="",
                 tile_w=None, tile_h=None,
                 min_dash=0.3, min_gap=0.3,
-                angle_tol=0.5, perp_tol=0.05):
+                angle_tol=0.5, perp_tol=0.05,
+                pattern_type="MODEL"):
     """Compila segmentos (x1,y1,x2,y2) en unidades Y-up a contenido PAT fiel.
 
     Cada línea portadora produce una entrada cuyo delta es paralelo a la
     dirección de la línea con magnitud igual al ciclo de dashes, de modo que
     la familia generada colapsa sobre una sola línea sin fantasmas ni
     desfases, y las copias envueltas garantizan continuidad entre tiles.
+
+    pattern_type: "MODEL" (patrón de relleno de modelo, unidades reales con
+    escala) o "DRAFTING" (patrón de relleno de diseño/detalle, escala fija de
+    símbolo en Revit). Se emite como `;%TYPE=` en el header.
     """
+    pattern_type = str(pattern_type).upper()
+    if pattern_type not in ("MODEL", "DRAFTING"):
+        raise ValueError(f"pattern_type inválido: {pattern_type!r} (usa MODEL o DRAFTING)")
     segs = [tuple(map(float, s)) for s in segments]
     if not segs:
         raise ValueError("No hay segmentos para compilar")
@@ -273,7 +281,7 @@ def compile_pat(segments, name="HATCHCRAFT", desc="",
     if not entries:
         raise ValueError("Ninguna portadora produjo geometría válida")
 
-    lines = [f"*{name}, {desc}", ";%TYPE=MODEL"]
+    lines = [f"*{name}, {desc}", f";%TYPE={pattern_type}"]
     for e in entries:
         parts = [
             fmt_num(e["angle"]),
@@ -289,4 +297,109 @@ def compile_pat(segments, name="HATCHCRAFT", desc="",
         "tile_w": tile_w,
         "tile_h": tile_h,
         "num_entries": len(entries),
+    }
+
+
+# Cuantización estándar de ángulos (DXF, pre-v2): múltiplos de 15°.
+VALID_ANGLES_15 = list(range(0, 360, 15))
+
+
+def _quantize_angle_15(deg):
+    """Devuelve el múltiplo de 15° más cercano (con wrap 0..360)."""
+    return min(VALID_ANGLES_15, key=lambda a: min(abs(deg - a), 360 - abs(deg - a)))
+
+
+def get_pat_shift(ang, tile_size):
+    """Calcula el vector de desplazamiento (dx, dy) según la periodicidad angular del tile.
+
+    Garantiza que las líneas inclinadas (Chevron, diagonales, etc.) se repitan de forma
+    uniforme y continua entre tiles contiguos sin dejar huecos vacíos en tablero de ajedrez.
+    Para conservar simetría y compatibilidad con Revit, dx y dy se mantienen simétricos:
+    - Ortogonales (cercanas a 0° o 90°): s = tile_size
+    - Inclinadas / Diagonales (Chevron a 45°/135°): s = 0.7071067812 * tile_size
+    """
+    ang_norm = ang % 180.0
+    dist_ortho = min(ang_norm, abs(ang_norm - 90.0), 180.0 - ang_norm)
+    if dist_ortho < 15.0:
+        return tile_size, tile_size
+    s = 0.7071067812 * tile_size
+    return s, s
+
+
+def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
+                        quantize_angles=None, coord_nd=6, dash_nd=6):
+    """Emite un .pat en el formato "una entrada por línea" (el que Revit acepta).
+
+    Reproduce fielmente la emisión pre-v2:
+      - Una entrada PAT por cada segmento dibujado (NO agrupa en portadoras).
+      - delta = (tile_size, tile_size)  → cada entrada dibuja una línea por tile
+        (siguiente copia a un tile en ambas direcciones) ⇒ sin solapado.
+      - dash = length; gap = -(tile_size - length), con mínimo -0.001
+        (trazo casi continuo dentro del tile).
+      - Ángulo en 0..180; si >= 180 se resta 180 y se intercambian puntos.
+      - quantize_angles: callable opcional (p.ej. _quantize_angle_15) para el DXF.
+
+    `segments` debe venir YA normalizado al origen (min_x,min_y restados) e Y-up.
+    Devuelve el mismo dict que compile_pat (pat_content/entries/tile_w/tile_h/num_entries)
+    para que render_faithful y parse_pat funcionen sin cambios.
+    """
+    if not segments:
+        raise ValueError("no hay segmentos para compilar")
+
+    pt = str(pattern_type).upper()
+    if pt not in ("MODEL", "DRAFTING"):
+        raise ValueError(f"pattern_type inválido: {pattern_type} (usa MODEL o DRAFTING)")
+
+    tile = float(tile_size)
+    if tile <= 0:
+        raise ValueError("tile_size debe ser > 0")
+    tile_r = round(tile, coord_nd)
+
+    pat_lines = []
+    entries = []
+    skipped = 0
+    for (x1, y1, x2, y2) in segments:
+        ang = math.degrees(math.atan2(y2 - y1, x2 - x1)) % 360.0
+        if quantize_angles is not None:
+            ang = float(quantize_angles(ang))
+        if ang >= 180.0:
+            ang -= 180.0
+            x1, y1, x2, y2 = x2, y2, x1, y1
+        ox = round(x1, coord_nd)
+        oy = round(y1, coord_nd)
+        length = math.hypot(x2 - x1, y2 - y1)
+        dash = round(length, dash_nd)
+        if dash <= 0:
+            # Segmento degenerado (longitud ~0): un dash 0.0 es inválido en Revit.
+            skipped += 1
+            continue
+        ang_q = round(ang, coord_nd) if quantize_angles is None else ang
+        shift_x, shift_y = get_pat_shift(ang, tile)
+        shift_xr = round(shift_x, coord_nd)
+        shift_yr = round(shift_y, coord_nd)
+        gap = round(-(shift_x - length), dash_nd)
+        if gap >= 0:
+            gap = -0.001
+        pat_lines.append(f"{ang_q}, {ox},{oy}, {shift_xr},{shift_yr}, {dash},{gap}")
+        entries.append({
+            "angle": float(ang_q),
+            "ox": float(ox),
+            "oy": float(oy),
+            "dx": float(shift_xr),
+            "dy": float(shift_yr),
+            "dashes": [float(dash), float(gap)],
+        })
+
+    if not pat_lines:
+        raise ValueError("todos los segmentos son degenerados (longitud ~0)")
+
+    lines = [f"*{name}, {desc}", f";%TYPE={pt}"] + pat_lines
+    pat_content = "\r\n".join(lines) + "\r\n"
+    return {
+        "pat_content": pat_content,
+        "entries": entries,
+        "tile_w": tile,
+        "tile_h": tile,
+        "num_entries": len(entries),
+        "skipped_degenerate": skipped,
     }

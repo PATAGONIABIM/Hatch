@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>HATCH.it — Patrones de relleno para Revit</title>
-    <meta name="description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <meta name="description"
+        content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
     <link rel="canonical" href="https://hatch.patagoniabim.cl/">
     <meta name="theme-color" content="#000000">
     <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -12,12 +14,14 @@
     <meta property="og:locale" content="es_CL">
     <meta property="og:site_name" content="PatagoniaBIM">
     <meta property="og:title" content="HATCH.it — Patrones de relleno para Revit">
-    <meta property="og:description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <meta property="og:description"
+        content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
     <meta property="og:url" content="https://hatch.patagoniabim.cl/">
     <meta property="og:image" content="https://www.patagoniabim.cl/og-image.png">
     <meta name="twitter:card" content="summary_large_image">
     <meta name="twitter:title" content="HATCH.it — Patrones de relleno para Revit">
-    <meta name="twitter:description" content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
+    <meta name="twitter:description"
+        content="Convierte imágenes y DXF en patrones de relleno (.PAT) para Revit. HATCH.it by PatagoniaBIM.">
     <meta name="twitter:image" content="https://www.patagoniabim.cl/og-image.png">
     <script type="application/ld+json">
     [
@@ -57,7 +61,7 @@
             "name": "¿Qué formatos acepta HATCH.it?",
             "acceptedAnswer": {
               "@type": "Answer",
-              "text": "HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes elegir entre 4 algoritmos de detección: Hough, LSD, FastLineDetector y Contornos."
+              "text": "HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes elegir entre 3 algoritmos de detección: Hough, LSD y Contornos."
             }
           },
           {
@@ -74,58 +78,97 @@
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=11">
+    <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="css/style.css?v=21">
 </head>
+
 <body>
 
     <svg class="sprite" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <defs>
-            <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 16V4m0 0l-4 4m4-4l4 4"/>
-                <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/>
+            <symbol id="i-upload" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 16V4m0 0l-4 4m4-4l4 4" />
+                <path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2" />
             </symbol>
-            <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/>
-                <path d="M14 2v6h6"/>
-                <path d="M8 13h8M8 17h5"/>
+            <symbol id="i-file" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
+                <path d="M14 2v6h6" />
+                <path d="M8 13h8M8 17h5" />
             </symbol>
-            <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="2"/>
-                <circle cx="8.5" cy="8.5" r="1.5"/>
-                <path d="M21 15l-5-5L5 21"/>
+            <symbol id="i-image" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="2" />
+                <circle cx="8.5" cy="8.5" r="1.5" />
+                <path d="M21 15l-5-5L5 21" />
             </symbol>
-            <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <circle cx="12" cy="12" r="3"/>
-                <path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/>
+            <symbol id="i-gear" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3" />
+                <path
+                    d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06a1.65 1.65 0 00.33-1.82 1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06a1.65 1.65 0 001.82.33H9a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06a1.65 1.65 0 00-.33 1.82V9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z" />
             </symbol>
-            <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M12 4v12m0 0l-4-4m4 4l4-4"/>
-                <path d="M4 20h16"/>
+            <symbol id="i-download" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 4v12m0 0l-4-4m4 4l4-4" />
+                <path d="M4 20h16" />
             </symbol>
-            <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="9" y="9" width="13" height="13" rx="2"/>
-                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/>
+            <symbol id="i-copy" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="9" y="9" width="13" height="13" rx="2" />
+                <path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1" />
             </symbol>
-            <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M20 6L9 17l-5-5"/>
+            <symbol id="i-check" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M20 6L9 17l-5-5" />
             </symbol>
-            <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/>
-                <path d="M12 9v4m0 4h.01"/>
+            <symbol id="i-alert" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+                <path d="M12 9v4m0 4h.01" />
             </symbol>
-            <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 18L18 6M6 6l12 12"/>
+            <symbol id="i-x" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 18L18 6M6 6l12 12" />
             </symbol>
-            <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M5 12h14m0 0l-6-6m6 6l-6 6"/>
+            <symbol id="i-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M5 12h14m0 0l-6-6m6 6l-6 6" />
             </symbol>
-            <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M6 9l6 6 6-6"/>
+            <symbol id="i-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M6 9l6 6 6-6" />
             </symbol>
-            <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
-                <rect x="3" y="3" width="18" height="18" rx="1.5"/>
-                <path d="M3 9h18M3 15h18M9 3v18M15 3v18"/>
+            <symbol id="i-grid" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <rect x="3" y="3" width="18" height="18" rx="1.5" />
+                <path d="M3 9h18M3 15h18M9 3v18M15 3v18" />
+            </symbol>
+            <symbol id="i-edit" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 20h9" />
+                <path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z" />
+            </symbol>
+            <symbol id="i-scissors" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="6" cy="6" r="3" />
+                <circle cx="6" cy="18" r="3" />
+                <line x1="20" y1="4" x2="8.12" y2="15.88" />
+                <line x1="14.47" y1="14.48" x2="20" y2="20" />
+                <line x1="8.12" y1="8.12" x2="12" y2="12" />
+            </symbol>
+            <symbol id="i-undo" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M3 7v6h6" />
+                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13" />
+            </symbol>
+            <symbol id="i-refresh" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"
+                stroke-linecap="round" stroke-linejoin="round">
+                <path d="M23 4v6h-6" />
+                <path d="M1 20v-6h6" />
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15" />
             </symbol>
         </defs>
     </svg>
@@ -134,7 +177,9 @@
 
     <div id="loader" aria-hidden="true">
         <div class="loader-inner">
-            <span class="loader-mark"><svg class="icon"><use href="#i-grid"/></svg></span>
+            <span class="loader-mark"><svg class="icon">
+                    <use href="#i-grid" />
+                </svg></span>
             <span class="loader-name">HATCH<span class="loader-dot">.it</span></span>
             <span class="loader-bar"><span class="loader-bar-fill" id="loader-bar-fill"></span></span>
         </div>
@@ -142,11 +187,15 @@
 
     <header class="site-header">
         <a href="#top" class="logo" data-cursor>
-            <span class="logo-mark"><svg class="icon"><use href="#i-grid"/></svg></span>
+            <span class="logo-mark"><svg class="icon">
+                    <use href="#i-grid" />
+                </svg></span>
             <span class="logo-name">HATCH<span class="logo-dot">.it</span></span>
         </a>
         <a href="https://www.patagoniabim.cl" class="site-x" id="site-x" aria-label="Volver a PatagoniaBIM" data-cursor>
-            <svg class="icon"><use href="#i-x"/></svg>
+            <svg class="icon">
+                <use href="#i-x" />
+            </svg>
         </a>
     </header>
 
@@ -160,37 +209,91 @@
         <section class="hero">
             <p class="hero-eyebrow reveal" data-i18n="hero.eyebrow">PATAGONIABIM / HERRAMIENTAS</p>
             <h1 class="hero-title reveal" data-cursor>HATCH<span class="hero-dot">.it</span></h1>
-            <p class="hero-sub reveal" data-i18n="hero.subtitle">Patrones de relleno para Revit, generados desde imágenes y DXF.</p>
+            <p class="hero-sub reveal" data-i18n="hero.subtitle">Patrones de relleno para Revit, generados desde
+                imágenes y DXF.</p>
         </section>
 
         <section class="app-shell reveal">
             <div class="app-card glass">
-                <div class="mode-switch" role="tablist" aria-label="Mode">
-                    <button class="mode-btn is-active" data-mode="image" role="tab" data-cursor>
-                        <svg class="icon"><use href="#i-image"/></svg>
-                        <span data-i18n="mode.image">IMAGEN</span>
-                    </button>
-                    <button class="mode-btn" data-mode="dxf" role="tab" data-cursor>
-                        <svg class="icon"><use href="#i-file"/></svg>
-                        <span data-i18n="mode.dxf">DXF</span>
-                    </button>
-                </div>
-
                 <div id="dropzone" class="dropzone" data-cursor>
-                    <input type="file" id="file-input" hidden>
-                    <svg class="icon dropzone-icon"><use href="#i-upload"/></svg>
+                    <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.dxf" hidden>
                     <p class="dropzone-title" data-i18n="drop.title">Arrastra tu archivo aquí</p>
                     <p class="dropzone-sub" data-i18n="drop.sub">PNG, JPG o DXF — máx. 12 MB</p>
-                    <span class="dropzone-btn" data-i18n="drop.select">SELECCIONAR ARCHIVO</span>
+                    <span class="dropzone-plus" aria-label="Seleccionar archivo" title="Seleccionar archivo">
+                        <svg class="plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                            <line x1="12" y1="5" x2="12" y2="19"></line>
+                            <line x1="5" y1="12" x2="19" y2="12"></line>
+                        </svg>
+                    </span>
                     <div class="dropzone-file hidden">
-                        <svg class="icon"><use href="#i-file"/></svg>
+                        <svg class="icon">
+                            <use href="#i-file" />
+                        </svg>
                         <span class="file-name"></span>
                         <span class="file-size"></span>
                         <img class="file-thumb hidden" alt="">
                         <button class="file-clear" aria-label="Remove file" data-cursor>
-                            <svg class="icon"><use href="#i-x"/></svg>
+                            <svg class="icon">
+                                <use href="#i-x" />
+                            </svg>
                         </button>
                     </div>
+                </div>
+
+                <div id="draw-panel" class="draw-panel hidden">
+                    <div class="draw-toolbar">
+                        <label class="toggle">
+                            <input type="checkbox" id="draw-snap-grid" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label" data-i18n="draw.snapgrid">Snap a rejilla</span>
+                        </label>
+                        <label class="toggle">
+                            <input type="checkbox" id="draw-snap-ortho" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label" data-i18n="draw.snaportho">Ortogonal / 45°</span>
+                        </label>
+                        <label class="toggle">
+                            <input type="checkbox" id="draw-snap-points" checked>
+                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                            <span class="toggle-label" data-i18n="draw.snappoints">Snap a puntos</span>
+                        </label>
+                        <button id="draw-undo" class="draw-btn" type="button" data-cursor>
+                            <span data-i18n="draw.undo">DESHACER</span>
+                        </button>
+                        <button id="draw-clear" class="draw-btn" type="button" data-cursor>
+                            <span data-i18n="draw.clear">LIMPIAR</span>
+                        </button>
+                    </div>
+                    <div class="field draw-tile-field">
+                        <label class="field-label" for="draw-tilemm" data-i18n="draw.tilemm">TAMAÑO DEL TILE
+                            (MM)</label>
+                        <input type="number" id="draw-tilemm" min="1" max="10000" step="1" value="100">
+                    </div>
+                    <canvas id="draw-canvas" data-cursor></canvas>
+                    <p class="draw-hint" data-i18n="draw.hint">Click-click: dibuja líneas dentro del tile. El patrón se
+                        genera en vivo.</p>
+                </div>
+
+                <div class="pattern-type-group">
+                    <div class="pattern-type-header">
+                        <div class="pattern-type-brand">
+                            <span class="group-num">00</span>
+                            <span class="group-title" data-i18n="ctl.patterntype_title">PATRÓN DE RELLENO</span>
+                        </div>
+                        <div class="pattern-type-options">
+                            <label class="circular-check" data-cursor>
+                                <input type="radio" name="patterntype" value="MODEL" checked>
+                                <span class="check-circle"></span>
+                                <span class="check-label" data-i18n="pat.model_short">MODELO</span>
+                            </label>
+                            <label class="circular-check" data-cursor>
+                                <input type="radio" name="patterntype" value="DRAFTING">
+                                <span class="check-circle"></span>
+                                <span class="check-label" data-i18n="pat.drafting_short">DISEÑO</span>
+                            </label>
+                        </div>
+                    </div>
+                    <input type="hidden" id="ctl-patterntype" value="MODEL">
                 </div>
 
                 <div id="controls" class="controls">
@@ -198,7 +301,9 @@
                         <button class="group-header" type="button" aria-expanded="false" data-cursor>
                             <span class="group-num">01</span>
                             <span class="group-title" data-i18n="ctl.detection">DETECCIÓN</span>
-                            <svg class="icon group-chevron"><use href="#i-chevron"/></svg>
+                            <svg class="icon group-chevron">
+                                <use href="#i-chevron" />
+                            </svg>
                         </button>
                         <div class="group-body">
                             <div class="field">
@@ -206,26 +311,29 @@
                                 <select id="ctl-method">
                                     <option value="hough" data-i18n="method.hough">Líneas rectas — Hough</option>
                                     <option value="lsd" data-i18n="method.lsd">Líneas precisas — LSD</option>
-                                    <option value="fld" data-i18n="method.fld">FastLineDetector</option>
-                                    <option value="contour" data-i18n="method.contour">Formas orgánicas — Contornos</option>
+                                    <option value="contour" data-i18n="method.contour">Formas orgánicas — Contornos
+                                    </option>
                                 </select>
                             </div>
                             <div class="field" data-for-method="all">
-                                <label class="field-label" for="ctl-p1" data-i18n="ctl.minlen">LONGITUD MÍN. DE LÍNEA</label>
+                                <label class="field-label" for="ctl-p1" data-i18n="ctl.minlen">LONGITUD MÍN. DE
+                                    LÍNEA</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-p1" min="5" max="100" step="1" value="20">
                                     <output class="slider-val" for="ctl-p1">20</output>
                                 </div>
                             </div>
                             <div class="field hidden" data-for-method="hough">
-                                <label class="field-label" for="ctl-p2hough" data-i18n="ctl.gap">UNIR HUECOS (GAP)</label>
+                                <label class="field-label" for="ctl-p2hough" data-i18n="ctl.gap">UNIR HUECOS
+                                    (GAP)</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-p2hough" min="1" max="50" step="1" value="5">
                                     <output class="slider-val" for="ctl-p2hough">5</output>
                                 </div>
                             </div>
                             <div class="field hidden" data-for-method="contour">
-                                <label class="field-label" for="ctl-p2cont" data-i18n="ctl.eps">SUAVIZADO DE CURVAS</label>
+                                <label class="field-label" for="ctl-p2cont" data-i18n="ctl.eps">SUAVIZADO DE
+                                    CURVAS</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-p2cont" min="1" max="50" step="1" value="5">
                                     <output class="slider-val" for="ctl-p2cont">0.005</output>
@@ -238,7 +346,9 @@
                         <button class="group-header" type="button" aria-expanded="false" data-cursor>
                             <span class="group-num">02</span>
                             <span class="group-title" data-i18n="ctl.preprocess">PRE-PROCESAMIENTO</span>
-                            <svg class="icon group-chevron"><use href="#i-chevron"/></svg>
+                            <svg class="icon group-chevron">
+                                <use href="#i-chevron" />
+                            </svg>
                         </button>
                         <div class="group-body">
                             <label class="toggle">
@@ -247,7 +357,8 @@
                                 <span class="toggle-label" data-i18n="ctl.clahe">CLAHE — mejorar contraste</span>
                             </label>
                             <div class="field hidden" data-depends="ctl-clahe">
-                                <label class="field-label" for="ctl-claheclip" data-i18n="ctl.claheclip">INTENSIDAD CLAHE</label>
+                                <label class="field-label" for="ctl-claheclip" data-i18n="ctl.claheclip">INTENSIDAD
+                                    CLAHE</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-claheclip" min="1" max="8" step="0.5" value="2">
                                     <output class="slider-val" for="ctl-claheclip">2.0</output>
@@ -266,10 +377,12 @@
                             <label class="toggle">
                                 <input type="checkbox" id="ctl-blackhat">
                                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.blackhat">Black-hat — trazos oscuros finos</span>
+                                <span class="toggle-label" data-i18n="ctl.blackhat">Black-hat — trazos oscuros
+                                    finos</span>
                             </label>
                             <div class="field hidden" data-depends="ctl-blackhat">
-                                <label class="field-label" for="ctl-blackhatk" data-i18n="ctl.blackhatk">TAMAÑO KERNEL</label>
+                                <label class="field-label" for="ctl-blackhatk" data-i18n="ctl.blackhatk">TAMAÑO
+                                    KERNEL</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-blackhatk" min="5" max="51" step="2" value="15">
                                     <output class="slider-val" for="ctl-blackhatk">15</output>
@@ -278,10 +391,12 @@
                             <label class="toggle">
                                 <input type="checkbox" id="ctl-adaptive">
                                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.adaptive">Adaptive Threshold — en vez de Canny</span>
+                                <span class="toggle-label" data-i18n="ctl.adaptive">Adaptive Threshold — en vez de
+                                    Canny</span>
                             </label>
                             <div class="field hidden" data-depends="ctl-adaptive">
-                                <label class="field-label" for="ctl-adapblock" data-i18n="ctl.adapblock">BLOQUE ADAPTIVO</label>
+                                <label class="field-label" for="ctl-adapblock" data-i18n="ctl.adapblock">BLOQUE
+                                    ADAPTIVO</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-adapblock" min="3" max="51" step="2" value="11">
                                     <output class="slider-val" for="ctl-adapblock">11</output>
@@ -297,7 +412,8 @@
                             <label class="toggle">
                                 <input type="checkbox" id="ctl-autocanny" checked>
                                 <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.autocanny">Auto-Canny — umbrales automáticos</span>
+                                <span class="toggle-label" data-i18n="ctl.autocanny">Auto-Canny — umbrales
+                                    automáticos</span>
                             </label>
                             <div class="field hidden" data-depends-not="ctl-autocanny">
                                 <label class="field-label" for="ctl-cannylow" data-i18n="ctl.cannylow">CANNY LOW</label>
@@ -307,24 +423,28 @@
                                 </div>
                             </div>
                             <div class="field hidden" data-depends-not="ctl-autocanny">
-                                <label class="field-label" for="ctl-cannyhigh" data-i18n="ctl.cannyhigh">CANNY HIGH</label>
+                                <label class="field-label" for="ctl-cannyhigh" data-i18n="ctl.cannyhigh">CANNY
+                                    HIGH</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-cannyhigh" min="50" max="300" step="1" value="150">
                                     <output class="slider-val" for="ctl-cannyhigh">150</output>
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="field-label" for="ctl-blur" data-i18n="ctl.blur">DESENFOQUE — LIMPIAR RUIDO</label>
+                                <label class="field-label" for="ctl-blur" data-i18n="ctl.blur">DESENFOQUE — LIMPIAR
+                                    RUIDO</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-blur" min="1" max="11" step="2" value="3">
                                     <output class="slider-val" for="ctl-blur">3</output>
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="field-label" for="ctl-filter" data-i18n="ctl.filter">FILTRO DE RUIDO</label>
+                                <label class="field-label" for="ctl-filter" data-i18n="ctl.filter">FILTRO DE
+                                    RUIDO</label>
                                 <select id="ctl-filter">
                                     <option value="gaussian" data-i18n="filter.gaussian">Gaussiano</option>
-                                    <option value="bilateral" data-i18n="filter.bilateral">Bilateral — preserva bordes</option>
+                                    <option value="bilateral" data-i18n="filter.bilateral">Bilateral — preserva bordes
+                                    </option>
                                     <option value="none" data-i18n="filter.none">Ninguno</option>
                                 </select>
                             </div>
@@ -335,18 +455,22 @@
                         <button class="group-header" type="button" aria-expanded="false" data-cursor>
                             <span class="group-num">03</span>
                             <span class="group-title" data-i18n="ctl.scale">ESCALA Y GEOMETRÍA</span>
-                            <svg class="icon group-chevron"><use href="#i-chevron"/></svg>
+                            <svg class="icon group-chevron">
+                                <use href="#i-chevron" />
+                            </svg>
                         </button>
                         <div class="group-body">
                             <div class="field">
-                                <label class="field-label" for="ctl-tilemm" data-i18n="ctl.tilemm">ESCALA REAL DEL TILE (MM)</label>
+                                <label class="field-label" for="ctl-tilemm" data-i18n="ctl.tilemm">ESCALA REAL DEL TILE
+                                    (MM)</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-tilemm" min="1" max="500" step="1" value="100">
                                     <output class="slider-val" for="ctl-tilemm">100</output>
                                 </div>
                             </div>
                             <div class="field">
-                                <label class="field-label" for="ctl-maxres" data-i18n="ctl.maxres">RESOLUCIÓN DE TRABAJO (PX)</label>
+                                <label class="field-label" for="ctl-maxres" data-i18n="ctl.maxres">RESOLUCIÓN DE TRABAJO
+                                    (PX)</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-maxres" min="200" max="800" step="50" value="400">
                                     <output class="slider-val" for="ctl-maxres">400</output>
@@ -372,7 +496,9 @@
 
 
                 <div id="alert-box" class="alert-box hidden">
-                    <svg class="icon"><use href="#i-alert"/></svg>
+                    <svg class="icon">
+                        <use href="#i-alert" />
+                    </svg>
                     <span class="alert-msg"></span>
                 </div>
 
@@ -383,47 +509,76 @@
                     </div>
 
                     <div class="results-grid">
-                        <div class="result-card">
-                            <div class="result-head">
-                                <span class="result-title" data-i18n="res.compare">COMPARATIVA</span>
-                                <div class="result-tags">
-                                    <span class="result-badge" data-i18n="res.detected">LÍNEAS DETECTADAS</span>
+                        <div class="result-card compare-card">
+                            <div class="result-head cad-result-head">
+                                <span class="result-title" data-i18n="res.detected">LÍNEAS DETECTADAS</span>
+                                <div class="cad-toolbar" id="cad-toolbar">
+                                    <div class="cad-tools">
+                                        <button type="button" class="cad-btn is-active" id="cad-tool-trim"
+                                            data-tool="trim" title="Trim / Extend" data-cursor>
+                                            <span>EX/TR</span>
+                                        </button>
+                                        <button type="button" class="cad-btn" id="cad-tool-draw" data-tool="draw"
+                                            title="Trazar línea" data-cursor>
+                                            <span>LINEA</span>
+                                        </button>
+                                        <button type="button" class="cad-btn" id="cad-tool-del" data-tool="delete"
+                                            title="Borrar línea" data-cursor>
+                                            <span>DEL</span>
+                                        </button>
+                                    </div>
+                                    <div class="cad-aux">
+                                        <button type="button" class="cad-btn cad-btn-ghost cad-btn-icon" id="cad-undo"
+                                            title="Deshacer" data-cursor>
+                                            <svg class="icon">
+                                                <use href="#i-undo" />
+                                            </svg>
+                                        </button>
+                                        <button type="button" class="cad-btn cad-btn-ghost cad-btn-icon" id="cad-reset"
+                                            title="Restablecer original" data-cursor>
+                                            <svg class="icon">
+                                                <use href="#i-refresh" />
+                                            </svg>
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
                             <div class="compare-wrap">
                                 <img id="debug-img" alt="Detected lines" class="debug-img">
+                                <canvas id="cad-canvas" class="cad-canvas"></canvas>
+                            </div>
+                            <div class="cad-hint-bar" id="cad-hint" data-i18n="cad.hint.trim">
+                                Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim)
+                                o alargar (Extend). Clic en vacío para deseleccionar.
                             </div>
                         </div>
                         <div class="result-card">
                             <div class="result-head">
-                                <span class="result-title" data-i18n="res.preview">SIMULACIÓN REVIT</span>
+                                <span class="result-title" data-i18n="res.preview">SIMULACIÓN</span>
                                 <div class="result-tags">
-                                    <span class="live-indicator" data-i18n="res.live">EN VIVO</span>
                                     <span class="result-badge" data-i18n="res.tile3">3x3 TILES</span>
                                 </div>
                             </div>
                             <div class="preview-wrap">
                                 <img id="preview-img" alt="Revit pattern preview" class="preview-img">
                             </div>
-                        </div>
-                    </div>
-
-                    <div class="result-card code-card">
-                        <div class="result-head">
-                            <span class="result-title" data-i18n="res.code">CÓDIGO .PAT</span>
-                            <div class="result-actions">
-                                <button id="copy-btn" class="ghost-btn" data-cursor>
-                                    <svg class="icon"><use href="#i-copy"/></svg>
-                                    <span data-i18n="res.copy">COPIAR</span>
-                                </button>
+                            <div class="sim-actions-bar">
                                 <button id="download-btn" class="gold-btn" data-cursor>
-                                    <svg class="icon"><use href="#i-download"/></svg>
+                                    <svg class="icon">
+                                        <use href="#i-download" />
+                                    </svg>
                                     <span data-i18n="res.download">DESCARGAR .PAT</span>
+                                </button>
+                                <button id="download-dxf-btn" class="gold-btn" data-cursor>
+                                    <svg class="icon">
+                                        <use href="#i-download" />
+                                    </svg>
+                                    <span data-i18n="res.downloaddxf">DESCARGAR .DXF</span>
                                 </button>
                             </div>
                         </div>
-                        <textarea id="pat-code" class="pat-code" readonly spellcheck="false"></textarea>
                     </div>
+                    <textarea id="pat-code" class="hidden" aria-hidden="true" style="display:none;"></textarea>
                 </div>
             </div>
         </section>
@@ -431,36 +586,57 @@
         <section class="faq-section reveal">
             <h2 class="faq-title">Preguntas frecuentes sobre HATCH.it</h2>
             <div class="faq-card glass">
-                <details class="faq-item" open>
-                    <summary class="faq-question"><h3>¿Qué es HATCH.it?</h3></summary>
-                    <p class="faq-answer">HATCH.it es una herramienta gratuita de PatagoniaBIM que convierte dibujos DXF o imágenes (PNG, JPG) en patrones de relleno (.PAT) importables en Revit, utilizando visión computacional. El procesamiento se realiza en el navegador y el archivo generado se puede descargar e importar directamente en Revit.</p>
+                <details class="faq-item" name="faq-accordion" open>
+                    <summary class="faq-question">
+                        <h3>¿Qué es HATCH.it?</h3>
+                    </summary>
+                    <p class="faq-answer">HATCH.it es una herramienta gratuita de PatagoniaBIM que convierte dibujos DXF
+                        o imágenes (PNG, JPG) en patrones de relleno (.PAT) importables en Revit, utilizando visión
+                        computacional. El procesamiento se realiza en el navegador y el archivo generado se puede
+                        descargar e importar directamente en Revit.</p>
                 </details>
-                <details class="faq-item">
-                    <summary class="faq-question"><h3>¿Cómo importo un patrón generado en Revit?</h3></summary>
-                    <p class="faq-answer">En Revit ve a Manage → Additional Settings → Fill Patterns → Import y selecciona el archivo .PAT generado por HATCH.it. El patrón quedará disponible en la lista de patrones de relleno del proyecto.</p>
+                <details class="faq-item" name="faq-accordion">
+                    <summary class="faq-question">
+                        <h3>¿Cómo importo un patrón generado en Revit?</h3>
+                    </summary>
+                    <p class="faq-answer">En Revit ve a Manage → Additional Settings → Fill Patterns → Import y
+                        selecciona el archivo .PAT generado por HATCH.it. El patrón quedará disponible en la lista de
+                        patrones de relleno del proyecto.</p>
                 </details>
-                <details class="faq-item">
-                    <summary class="faq-question"><h3>¿Qué formatos acepta HATCH.it?</h3></summary>
-                    <p class="faq-answer">HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes elegir entre 4 algoritmos de detección de líneas: Hough, LSD, FastLineDetector y Contornos, con controles de pre-procesamiento como CLAHE, skeleton, black-hat y auto-Canny.</p>
+                <details class="faq-item" name="faq-accordion">
+                    <summary class="faq-question">
+                        <h3>¿Qué formatos acepta HATCH.it?</h3>
+                    </summary>
+                    <p class="faq-answer">HATCH.it acepta archivos PNG, JPG y DXF de hasta 12 MB. En modo imagen puedes
+                        elegir entre 3 algoritmos de detección de líneas: Hough, LSD y Contornos, con controles de
+                        pre-procesamiento como CLAHE, skeleton, black-hat y auto-Canny.</p>
                 </details>
-                <details class="faq-item">
-                    <summary class="faq-question"><h3>¿HATCH.it es gratuito?</h3></summary>
-                    <p class="faq-answer">Sí. HATCH.it es una herramienta gratuita de PatagoniaBIM, disponible en el navegador sin necesidad de instalación.</p>
+                <details class="faq-item" name="faq-accordion">
+                    <summary class="faq-question">
+                        <h3>¿HATCH.it es gratuito?</h3>
+                    </summary>
+                    <p class="faq-answer">Sí. HATCH.it es una herramienta gratuita de PatagoniaBIM, disponible en el
+                        navegador sin necesidad de instalación.</p>
                 </details>
             </div>
         </section>
 
         <footer class="site-footer reveal">
             <div class="footer-copy">
-                <span>© 2026 <a href="https://www.patagoniabim.cl/" class="footer-brand" data-cursor target="_blank" rel="noopener">PatagoniaBIM</a>. <span data-i18n="footer.rights">Todos los derechos reservados.</span></span>
+                <span>© 2026 <a href="https://www.patagoniabim.cl/" class="footer-brand" data-cursor target="_blank"
+                        rel="noopener">PatagoniaBIM</a>. <span data-i18n="footer.rights">Todos los derechos
+                        reservados.</span></span>
                 <span class="footer-sep">|</span>
-                <span><span data-i18n="footer.design">Diseño WEB</span> <a href="https://www.instagram.com/renderman.cl" class="footer-designer" data-cursor target="_blank" rel="noopener">@Christian Avila</a></span>
+                <span><span data-i18n="footer.design">Diseño WEB</span> <a href="https://www.instagram.com/renderman.cl"
+                        class="footer-designer" data-cursor target="_blank" rel="noopener">@Christian Avila</a></span>
             </div>
-            <span class="footer-hint" data-i18n="footer.revit">REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT</span>
+            <span class="footer-hint" data-i18n="footer.revit">REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS →
+                IMPORT</span>
         </footer>
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=16"></script>
+    <script src="js/main.js?v=23"></script>
 </body>
+
 </html>

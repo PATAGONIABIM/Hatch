@@ -10,22 +10,29 @@
 - **Modo Imagen**: Algoritmos de visión por computadora para detectar patrones desde imágenes.
   - **Hough**: Detecta líneas rectas perfectas (ideal para escaneos geométricos).
   - **LSD**: Detector sub-pixel auto-tuning, el más preciso para líneas.
-  - **FLD**: FastLineDetector (opencv-contrib), rápido y robusto.
   - **Contornos**: Formas orgánicas y curvas (muros de piedra, vegetación, tierra).
   - **Pre-procesamiento**: CLAHE, Black-hat, Bilateral, Auto-Canny, Adaptive Threshold, Skeleton, Merge.
   - **Escala física**: define el tamaño real del tile en mm para cotas correctas en Revit.
 - **Filtrado inteligente**: elimina líneas dobles y optimiza la geometría para el rendimiento de Revit.
 - **Vista previa en tiempo real**: simulación fiel del tileado 3x3 en Revit.
 - **Listo para Revit**: genera archivos compatibles con `Import Fill Pattern`.
+- **Modo DIBUJAR**: lienzo web con snap a rejilla, ortogonal/45° y puntos (endpoints/medios), undo/limpiar y tile real en mm (endpoint `/api/convert/segments`).
+- **Tipo de patrón MODEL/DRAFTING**: emite `;%TYPE=MODEL` o `;%TYPE=DRAFTING` (patrones de modelo o de diseño/detalle de Revit).
+- **Export DXF editable**: imagen → DXF con LINE/LWPOLYLINE/ARC/CIRCLE reales y colores de tinta fuente (endpoint `/api/export/dxf`).
+- **Emisión per-line**: formato `.PAT` que Revit acepta — una entrada por línea dibujada, `delta=(tile,tile)`, `dash=longitud`, `gap≈-0.001` (sin superposiciones).
 
 ## Arquitectura
 
 - `core_logic.py` — motor de conversión (DXF e imagen a PAT), independiente de la interfaz.
-- `pat_compiler.py` — compilador de entradas PAT.
+- `pat_compiler.py` — compilador de entradas PAT (emisión per-line: una entrada por línea, formato que Revit acepta).
 - `pat_sim.py` — simulador fiel del renderizado de Revit.
 - `api/main.py` — API FastAPI (JSON) que expone el motor y sirve el frontend.
 - `web/` — frontend custom (HTML/CSS/JS vanilla, sin build step, i18n ES/EN).
 - `app.py` — interfaz Streamlit clásica (mantenida como alternativa).
+- `geometry.py` — primitivas geométricas (simplify_polyline_adaptive RDP, fit_arc Kasa).
+- `segment_cleaner.py` — dedup de familias de líneas duplicadas (módulo tile).
+- `metrics.py` — métricas de calidad (count_overlap visual, chord_error).
+- `dxf_exporter.py` — exportador DXF con entidades ricas (LINE/LWPOLYLINE/ARC/CIRCLE, true-color).
 
 ## Instalación
 
@@ -57,6 +64,8 @@ streamlit run app.py
 | `/api/convert/image` | POST (multipart) | Imagen → PAT (parámetros CV como form fields) |
 | `/api/convert/dxf` | POST (multipart) | DXF → PAT |
 | `/api/preview` | POST (JSON) | Renderiza un PAT con la simulación Revit (escala) |
+| `/api/convert/segments` | POST (JSON) | Segmentos → PAT (lienzo de dibujo, mm Y-up) |
+| `/api/export/dxf` | POST (multipart) | Imagen → DXF editable con curvas reales (ARC/CIRCLE) |
 
 ## Tests
 
@@ -88,6 +97,10 @@ python -m pytest
   - **Filtrado inteligente**: Elimina líneas dobles y optimiza la geometría para el rendimiento de Revit.
 - **Vista previa en tiempo real**: Visualiza tu patrón antes de exportar.
 - **Listo para Revit**: Genera archivos compatibles con la herramienta `Import Fill Pattern` de Revit.
+- **Modo DIBUJAR**: Lienzo web con snap a rejilla, ortogonal/45° y puntos (endpoint `/api/convert/segments`).
+- **Tipo de patrón MODEL/DRAFTING**: Elige entre Model y Drafting de Revit.
+- **Export DXF editable**: Imagen → DXF con LINE/LWPOLYLINE/ARC/CIRCLE y colores de tinta fuente (`/api/export/dxf`).
+- **Emisión per-line**: Formato .PAT que Revit acepta (una entrada por línea, delta=(tile,tile)).
 
 ## Instalación
 

@@ -8,6 +8,9 @@ import ezdxf
 import pat_compiler
 import pat_sim
 
+from geometry import simplify_polyline_adaptive
+from segment_cleaner import dedup_duplicate_segments
+
 
 def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0):
     """Renderiza el PAT con el simulador fiel (semántica real de Revit)"""
@@ -102,7 +105,7 @@ class DXFtoPatConverter:
                 pass
         return n
 
-    def convert(self, dxf_file_path, pattern_name="DXF_Pattern"):
+    def convert(self, dxf_file_path, pattern_name="DXF_Pattern", pattern_type="MODEL"):
         """Lee un archivo DXF y genera un PAT fiel (sin cuantización de ángulo)"""
         try:
             doc = ezdxf.readfile(dxf_file_path)
@@ -140,17 +143,23 @@ class DXFtoPatConverter:
             if tile_w <= 0 or tile_h <= 0:
                 return {"error": "El dibujo tiene tamaño cero"}
 
-            min_dash = max(tile_w * 0.002, 1e-3)
-            min_gap = min_dash
-            compiled = pat_compiler.compile_pat(
-                norm, name=pattern_name, desc="Converted from AutoCAD DXF",
-                tile_w=tile_w, tile_h=tile_h,
-                min_dash=min_dash, min_gap=min_gap
-            )
+            # Emisión "una entrada por línea" (formato que Revit acepta),
+            # con ángulos cuantizados a 15° y tile cuadrado = max(tile_w, tile_h).
+            tile_size = max(tile_w, tile_h)
+            # Fase 3: eliminar familias PAT duplicadas (offset ≡ mod tile),
+            # que son las líneas superpuestas visibles en la simulación/Revit.
+            norm, removed_dups = dedup_duplicate_segments(norm, tile_size)
+            compiled = pat_compiler.compile_pat_perline(
+                    norm, name=pattern_name, desc="Converted from AutoCAD DXF",
+                    tile_size=tile_size,
+                    quantize_angles=pat_compiler._quantize_angle_15,
+                    coord_nd=6, dash_nd=6,
+                    pattern_type=pattern_type
+                )
 
             debug_img = render_dxf_debug(norm, 0.0, 0.0, tile_w, tile_h)
             preview = pat_sim.render_faithful(
-                compiled['pat_content'], tile_w, tile_h, tiles=3, size=600
+                compiled['pat_content'], tile_size, tile_size, tiles=3, size=600
             )
 
             warnings = []
@@ -167,6 +176,8 @@ class DXFtoPatConverter:
             if ignored:
                 tipos = ", ".join(f"{k}×{v}" for k, v in sorted(ignored.items()))
                 stats += f" | ignoradas: {tipos}"
+            if removed_dups:
+                stats += f" | duplicados eliminados: {removed_dups}"
 
             return {
                 "pat_content": compiled['pat_content'],
@@ -179,6 +190,7 @@ class DXFtoPatConverter:
                 "num_entries": compiled['num_entries'],
                 "ignored_entities": dict(ignored),
                 "segments": len(segments),
+                "segments_mm": [list(s) for s in norm],
             }
 
         except ezdxf.DXFError as e:
@@ -191,9 +203,10 @@ class ImageToPatConverter:
     """Convierte imágenes a PAT con pipeline CV avanzado.
 
     Novedades: auto-Canny (mediana±33%), filtro bilateral, black-hat,
-    upscale automático para imágenes pequeñas, FastLineDetector (contrib),
+    upscale automático para imágenes pequeñas,
     dedup por grosor de trazo vía transformada de distancia, detección de
     período por autocorrelación FFT y escala real en milímetros.
+    Métodos de detección canónicos: hough, lsd, contour.
     """
 
     def __init__(self):
@@ -331,6 +344,54 @@ class ImageToPatConverter:
             return None
         return float(peak)
 
+    @staticmethod
+    def _preprocess(gray, use_clahe=False, clahe_clip=2.0, use_blackhat=False,
+                    blackhat_ksize=15, filter_mode="gaussian", blur_size=3,
+                    use_adaptive=False, adaptive_block=11, adaptive_c=2,
+                    use_auto_canny=False, canny_low=50, canny_high=150):
+        """Preprocesado unificado: CLAHE → black-hat → blur → edges.
+
+        Devuelve (blurred, edges). `blurred` alimenta LSD/Hough; `edges`
+        alimenta Canny/contornos y el debug.
+        """
+        if use_clahe:
+            clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(8, 8))
+            gray = clahe.apply(gray)
+
+        if use_blackhat:
+            k = max(3, int(blackhat_ksize))
+            if k % 2 == 0:
+                k += 1
+            kernel_bh = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
+            bh = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel_bh)
+            gray = cv2.subtract(gray, bh)
+
+        blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1
+        if filter_mode == "bilateral":
+            blurred = cv2.bilateralFilter(gray, blur_size, 50, blur_size)
+        elif filter_mode == "none":
+            blurred = gray
+        else:
+            blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
+
+        if use_adaptive:
+            adaptive_block = adaptive_block if adaptive_block % 2 == 1 else adaptive_block + 1
+            if adaptive_block < 3:
+                adaptive_block = 3
+            edges = cv2.adaptiveThreshold(
+                blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+                cv2.THRESH_BINARY_INV, adaptive_block, adaptive_c
+            )
+        elif use_auto_canny:
+            med = float(np.median(blurred))
+            low = max(0, int(0.66 * med))
+            high = min(255, int(1.33 * med))
+            edges = cv2.Canny(blurred, low, high)
+        else:
+            edges = cv2.Canny(blurred, canny_low, canny_high)
+
+        return blurred, edges
+
     def convert(self, image_bytes, method="hough", canny_low=50, canny_high=150,
                 blur_size=3, param1=20, param2=5,
                 use_clahe=False, clahe_clip=2.0,
@@ -343,7 +404,8 @@ class ImageToPatConverter:
                 dedup_auto=True, dedup_k=2.5, dedup_threshold=8.0,
                 offset_x=0.0, offset_y=0.0,
                 max_resolution=600,
-                tile_mm=100.0, min_dash_mm=0.3, min_gap_mm=0.3):
+                tile_mm=100.0, min_dash_mm=0.3, min_gap_mm=0.3,
+                pattern_type="MODEL", return_geometry=False):
         """Pipeline imagen → PAT con escala física en mm.
 
         tile_mm es el tamaño real del lado del tile cuadrado; los segmentos
@@ -387,42 +449,14 @@ class ImageToPatConverter:
             t1 = time.perf_counter()
 
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-
-            if use_clahe:
-                clahe = cv2.createCLAHE(clipLimit=clahe_clip, tileGridSize=(8, 8))
-                gray = clahe.apply(gray)
-
-            if use_blackhat:
-                k = max(3, int(blackhat_ksize))
-                if k % 2 == 0:
-                    k += 1
-                kernel_bh = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (k, k))
-                bh = cv2.morphologyEx(gray, cv2.MORPH_BLACKHAT, kernel_bh)
-                gray = cv2.subtract(gray, bh)
-
-            blur_size = blur_size if blur_size % 2 == 1 else blur_size + 1
-            if filter_mode == "bilateral":
-                blurred = cv2.bilateralFilter(gray, blur_size, 50, blur_size)
-            elif filter_mode == "none":
-                blurred = gray
-            else:
-                blurred = cv2.GaussianBlur(gray, (blur_size, blur_size), 0)
-
-            if use_adaptive:
-                adaptive_block = adaptive_block if adaptive_block % 2 == 1 else adaptive_block + 1
-                if adaptive_block < 3:
-                    adaptive_block = 3
-                edges = cv2.adaptiveThreshold(
-                    blurred, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-                    cv2.THRESH_BINARY_INV, adaptive_block, adaptive_c
-                )
-            elif use_auto_canny:
-                med = float(np.median(blurred))
-                low = max(0, int(0.66 * med))
-                high = min(255, int(1.33 * med))
-                edges = cv2.Canny(blurred, low, high)
-            else:
-                edges = cv2.Canny(blurred, canny_low, canny_high)
+            blurred, edges = self._preprocess(
+                gray, use_clahe=use_clahe, clahe_clip=clahe_clip,
+                use_blackhat=use_blackhat, blackhat_ksize=blackhat_ksize,
+                filter_mode=filter_mode, blur_size=blur_size,
+                use_adaptive=use_adaptive, adaptive_block=adaptive_block,
+                adaptive_c=adaptive_c, use_auto_canny=use_auto_canny,
+                canny_low=canny_low, canny_high=canny_high,
+            )
 
             timings['preprocess'] = time.perf_counter() - t1
             t2 = time.perf_counter()
@@ -451,30 +485,11 @@ class ImageToPatConverter:
                                    np.array([220, 220, 220], dtype=np.uint8),
                                    np.array([255, 255, 255], dtype=np.uint8))
             debug_img = debug_edges.astype(np.uint8)
+            debug_base = debug_img.copy()
 
             raw_lines = []
 
-            if method == "fld":
-                try:
-                    fld = cv2.ximgproc.createFastLineDetector(
-                        length_threshold=int(param1),
-                        distance_threshold=1.41421356,
-                        canny_th1=50, canny_th2=150,
-                        canny_aperture_size=3, do_merge=True
-                    )
-                    lines_fld = fld.detect(blurred)
-                    if lines_fld is not None:
-                        min_len = float(param1)
-                        for line in lines_fld:
-                            coords = np.asarray(line).ravel()
-                            x1, y1, x2, y2 = coords[:4]
-                            if math.hypot(x2 - x1, y2 - y1) >= min_len:
-                                raw_lines.append((float(x1), float(y1),
-                                                  float(x2), float(y2)))
-                except AttributeError:
-                    return {"error": "FLD requiere opencv-contrib-python instalado"}
-
-            elif method == "hough":
+            if method == "hough":
                 kernel = np.ones((2, 2), np.uint8)
                 closed_edges = cv2.morphologyEx(edges, cv2.MORPH_CLOSE, kernel)
 
@@ -516,8 +531,11 @@ class ImageToPatConverter:
                     if arc_len < min_contour_len:
                         continue
 
-                    approx = cv2.approxPolyDP(cnt, epsilon_factor * arc_len, False)
-                    pts = approx[:, 0, :]
+                    # Simplificación adaptativa (RDP, tolerancia de cuerda
+                    # absoluta): misma tolerancia que antes → mismo resultado,
+                    # ahora enrutado por geometry.py (Fase 2, curvas orgánicas).
+                    pts = simplify_polyline_adaptive(
+                        cnt[:, 0, :], tol=epsilon_factor * arc_len)
 
                     for i in range(len(pts) - 1):
                         x1, y1 = pts[i]
@@ -608,11 +626,19 @@ class ImageToPatConverter:
                 uy2 = (side - y2) / px_per_unit
                 segs_units.append((ux1, uy1, ux2, uy2))
 
-            compiled = pat_compiler.compile_pat(
-                segs_units, name="Image_Pattern",
+            # Normaliza al origen y emite "una entrada por línea" (formato que
+            # Revit acepta): delta=(tile,tile), dash=length, gap=-(tile-length).
+            # Para imagen, las coordenadas en mm ya están mapeadas dentro del tile [0, tile_mm]
+            # No restar min_x/min_y para preservar la posición real y coincidir con el preview/lienzo
+            segs_norm = list(segs_units)
+
+            compiled = pat_compiler.compile_pat_perline(
+                segs_norm, name="Image_Pattern",
                 desc="HatchCraft precision pattern",
-                tile_w=tile_mm, tile_h=tile_mm,
-                min_dash=min_dash_mm, min_gap=min_gap_mm
+                tile_size=tile_mm,
+                quantize_angles=None,
+                coord_nd=5, dash_nd=5,
+                pattern_type=pattern_type
             )
 
             timings['dedup+pat'] = time.perf_counter() - t4
@@ -661,10 +687,11 @@ class ImageToPatConverter:
                 f"tile={tile_mm:.0f}mm | {timing_str}"
             )
 
-            return {
+            result = {
                 "pat_content": compiled['pat_content'],
                 "pat_preview": preview,
                 "debug_img": debug_img,
+                "debug_base": debug_base,
                 "stats": stats,
                 "warnings": warnings,
                 "tile_w": tile_mm,
@@ -675,7 +702,16 @@ class ImageToPatConverter:
                 "period_x_px": period_x,
                 "period_y_px": period_y,
                 "segments": len(kept_lines),
+                "segments_mm": [list(s) for s in segs_norm],
             }
+
+            if return_geometry:
+                result["lines_px"] = list(kept_lines)
+                result["source_bgr"] = img
+                result["side_px"] = side
+                result["px_per_unit"] = px_per_unit
+
+            return result
 
         except Exception as e:
             return {"error": f"Error: {str(e)}"}

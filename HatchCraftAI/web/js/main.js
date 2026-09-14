@@ -8,6 +8,14 @@
             'hero.subtitle': 'Patrones de relleno para Revit, generados desde imágenes y DXF.',
             'mode.image': 'IMAGEN',
             'mode.dxf': 'DXF',
+            'mode.draw': 'DIBUJAR',
+            'draw.snapgrid': 'Snap — rejilla',
+            'draw.snaportho': 'Snap — ortogonal / 45°',
+            'draw.snappoints': 'Snap — puntos',
+            'draw.undo': 'DESHACER',
+            'draw.clear': 'LIMPIAR',
+            'draw.tilemm': 'TILE REAL (MM)',
+            'draw.hint': 'Click para fijar el punto inicial; mueve y haz click de nuevo para trazar la línea.',
             'drop.title': 'Arrastra tu archivo aquí',
             'drop.sub': 'PNG, JPG o DXF — máx. 12 MB',
             'drop.select': 'SELECCIONAR ARCHIVO',
@@ -32,13 +40,17 @@
             'ctl.cannyhigh': 'CANNY HIGH',
             'ctl.blur': 'DESENFOQUE — LIMPIAR RUIDO',
             'ctl.filter': 'FILTRO DE RUIDO',
-            'ctl.tilemm': 'ESCALA REAL DEL TILE (MM)',
+            'ctl.patterntype': '00 PATRÓN DE RELLENO',
+            'ctl.patterntype_title': 'PATRÓN DE RELLENO',
+            'pat.model_short': 'MODELO',
+            'pat.drafting_short': 'DISEÑO',
+            'pat.model': 'Modelo — usa escala real',
+            'pat.drafting': 'Diseño/Detalle — escala fija de símbolo',
             'ctl.maxres': 'RESOLUCIÓN DE TRABAJO (PX)',
             'ctl.offx': 'OFFSET X',
             'ctl.offy': 'OFFSET Y',
             'method.hough': 'Líneas rectas — Hough',
             'method.lsd': 'Líneas precisas — LSD',
-            'method.fld': 'FastLineDetector',
             'method.contour': 'Formas orgánicas — Contornos',
             'filter.gaussian': 'Gaussiano',
             'filter.bilateral': 'Bilateral — preserva bordes',
@@ -47,15 +59,23 @@
             'btn.converting': 'PROCESANDO...',
             'btn.updating': 'ACTUALIZANDO...',
             'res.live': 'EN VIVO',
-            'res.preview': 'SIMULACIÓN REVIT',
+            'res.preview': 'SIMULACIÓN',
             'res.tile3': '3x3 TILES',
             'res.scale': 'ESCALA',
-            'res.compare': 'COMPARATIVA',
-            'res.detected': 'Líneas detectadas',
+            'res.detected': 'LÍNEAS DETECTADAS',
             'res.code': 'CÓDIGO .PAT',
             'res.copy': 'COPIAR',
             'res.copied': 'COPIADO',
             'res.download': 'DESCARGAR .PAT',
+            'res.downloaddxf': 'DESCARGAR .DXF',
+            'cad.trim': 'EX/TR',
+            'cad.draw': 'LINEA',
+            'cad.delete': 'DEL',
+            'cad.undo': 'DESHACER',
+            'cad.reset': 'REINICIAR',
+            'cad.hint.trim': 'Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim) o alargar (Extend). Clic en vacío para deseleccionar.',
+            'cad.hint.draw': 'Clic para fijar inicio; clic para fijar fin. Snaps automáticos a extremos y rejilla.',
+            'cad.hint.delete': 'Clic sobre cualquier línea para eliminarla.',
             'footer.rights': 'Todos los derechos reservados.',
             'footer.design': 'Diseño WEB',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
@@ -67,6 +87,14 @@
             'hero.subtitle': 'Revit fill patterns, generated from images and DXF.',
             'mode.image': 'IMAGE',
             'mode.dxf': 'DXF',
+            'mode.draw': 'DRAW',
+            'draw.snapgrid': 'Snap — grid',
+            'draw.snaportho': 'Snap — orthogonal / 45°',
+            'draw.snappoints': 'Snap — points',
+            'draw.undo': 'UNDO',
+            'draw.clear': 'CLEAR',
+            'draw.tilemm': 'REAL TILE (MM)',
+            'draw.hint': 'Click to set the start point; move and click again to draw the line.',
             'drop.title': 'Drop your file here',
             'drop.sub': 'PNG, JPG or DXF — max 12 MB',
             'drop.select': 'SELECT FILE',
@@ -92,12 +120,17 @@
             'ctl.blur': 'BLUR — REDUCE NOISE',
             'ctl.filter': 'NOISE FILTER',
             'ctl.tilemm': 'REAL TILE SIZE (MM)',
+            'ctl.patterntype': '00 FILL PATTERN',
+            'ctl.patterntype_title': 'FILL PATTERN',
+            'pat.model_short': 'MODEL',
+            'pat.drafting_short': 'DRAFTING',
+            'pat.model': 'Model — real scale',
+            'pat.drafting': 'Drafting/Detail — fixed symbol scale',
             'ctl.maxres': 'WORKING RESOLUTION (PX)',
             'ctl.offx': 'OFFSET X',
             'ctl.offy': 'OFFSET Y',
             'method.hough': 'Straight lines — Hough',
             'method.lsd': 'Precise lines — LSD',
-            'method.fld': 'FastLineDetector',
             'method.contour': 'Organic shapes — Contours',
             'filter.gaussian': 'Gaussian',
             'filter.bilateral': 'Bilateral — preserves edges',
@@ -106,15 +139,23 @@
             'btn.converting': 'PROCESSING...',
             'btn.updating': 'UPDATING...',
             'res.live': 'LIVE',
-            'res.preview': 'REVIT SIMULATION',
+            'res.preview': 'SIMULATION',
             'res.tile3': '3x3 TILES',
             'res.scale': 'SCALE',
-            'res.compare': 'COMPARISON',
-            'res.detected': 'Detected lines',
+            'res.detected': 'DETECTED LINES',
             'res.code': '.PAT CODE',
             'res.copy': 'COPY',
             'res.copied': 'COPIED',
             'res.download': 'DOWNLOAD .PAT',
+            'res.downloaddxf': 'DOWNLOAD .DXF',
+            'cad.trim': 'EX/TR',
+            'cad.draw': 'LINEA',
+            'cad.delete': 'DEL',
+            'cad.undo': 'UNDO',
+            'cad.reset': 'RESET',
+            'cad.hint.trim': 'Infinite boundary: click a line to set BOUNDARY. Click another line to Trim or Extend. Click empty space to deselect.',
+            'cad.hint.draw': 'Click to set start; click to set end. Automatic snaps to endpoints and grid.',
+            'cad.hint.delete': 'Click on any line to delete it.',
             'footer.rights': 'All rights reserved.',
             'footer.design': 'Web Design',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
@@ -356,18 +397,28 @@
     const controls = $('#controls');
     const dropTitle = $('.dropzone-title');
     const dropSub = $('.dropzone-sub');
+    const drawPanel = $('#draw-panel');
 
     $$('.mode-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             mode = btn.dataset.mode;
+            const isDraw = mode === 'draw';
             $$('.mode-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
-            controls.classList.toggle('hidden', mode === 'dxf');
-            dropSub.textContent = mode === 'dxf'
-                ? (lang === 'es' ? 'Archivo DXF — máx. 12 MB' : 'DXF file — max 12 MB')
-                : t('drop.sub');
-            fileInput.accept = mode === 'dxf' ? '.dxf' : '.png,.jpg,.jpeg';
+            controls.classList.toggle('hidden', mode !== 'image');
+            if (!isDraw) {
+                dropSub.textContent = mode === 'dxf'
+                    ? (lang === 'es' ? 'Archivo DXF — máx. 12 MB' : 'DXF file — max 12 MB')
+                    : t('drop.sub');
+                fileInput.accept = mode === 'dxf' ? '.dxf' : '.png,.jpg,.jpeg';
+            }
             clearFile();
             hideResults();
+            if (drawPanel) drawPanel.classList.toggle('hidden', !isDraw);
+            if (dz) dz.classList.toggle('hidden', isDraw);
+            if (isDraw && typeof drawCanvasResize === 'function') {
+                drawCanvasResize();
+                redrawDrawCanvas();
+            }
         });
     });
 
@@ -376,7 +427,7 @@
     const fileInput = $('#file-input');
     let currentFile = null;
 
-    fileInput.accept = '.png,.jpg,.jpeg';
+    fileInput.accept = '.png,.jpg,.jpeg,.dxf';
 
     dz.addEventListener('click', () => fileInput.click());
     dz.addEventListener('dragover', (e) => {
@@ -398,20 +449,25 @@
     });
 
     function setFile(file) {
-        const okTypes = mode === 'dxf'
-            ? ['.dxf']
-            : ['.png', '.jpg', '.jpeg'];
         const ext = '.' + (file.name.split('.').pop() || '').toLowerCase();
-        if (!okTypes.includes(ext)) {
+        const isDxf = ext === '.dxf';
+        const isImg = ['.png', '.jpg', '.jpeg', '.webp', '.bmp'].includes(ext);
+
+        if (!isDxf && !isImg) {
             showError(lang === 'es'
-                ? 'Formato no válido. Usa ' + okTypes.join(', ')
-                : 'Invalid format. Use ' + okTypes.join(', '));
+                ? 'Formato no válido. Usa PNG, JPG o DXF'
+                : 'Invalid format. Use PNG, JPG or DXF');
             return;
         }
         if (file.size > 12 * 1024 * 1024) {
             showError(lang === 'es' ? 'El archivo supera 12 MB' : 'File exceeds 12 MB');
             return;
         }
+
+        // Auto-reconocimiento del modo (DXF o Imagen)
+        mode = isDxf ? 'dxf' : 'image';
+        controls.classList.toggle('hidden', mode !== 'image');
+
         currentFile = file;
         $('.dropzone-file').classList.remove('hidden');
         $('.file-name').textContent = file.name;
@@ -440,6 +496,8 @@
         }
         currentFile = null;
         fileInput.value = '';
+        mode = 'image';
+        controls.classList.remove('hidden');
         dz.classList.remove('has-file');
         $('.dropzone-file').classList.add('hidden');
         hideResults();
@@ -484,7 +542,7 @@
         $$('[data-for-method]').forEach((el) => {
             el.classList.toggle('hidden', el.dataset.forMethod !== 'all' && el.dataset.forMethod !== m);
         });
-        const defaults = { hough: 20, lsd: 15, fld: 20, contour: 20 };
+        const defaults = { hough: 20, lsd: 15, contour: 20 };
         const p1 = $('#ctl-p1');
         p1.value = defaults[m];
         const outP1 = $('output[for="ctl-p1"]');
@@ -499,6 +557,200 @@
     }
     methodSel.addEventListener('change', syncMethod);
     syncMethod();
+
+    /* ============ Draw canvas (modo DIBUJAR) ============ */
+    const drawCanvas = $('#draw-canvas');
+    const dctx = drawCanvas ? drawCanvas.getContext('2d') : null;
+    const DRAW_PAD = 10;
+    let drawSegments = [];
+    let drawStart = null;
+    let drawHover = null;
+    let drawDebounce = null;
+    let drawCssSize = 280;
+
+    function drawTileMm() {
+        const el = $('#draw-tilemm');
+        const v = el ? parseFloat(el.value) : 100;
+        return (isFinite(v) && v > 0) ? v : 100;
+    }
+
+    function drawCanvasResize() {
+        if (!drawCanvas || !dctx) return;
+        const w = Math.max(200, Math.round(drawCanvas.clientWidth || 320));
+        drawCssSize = w;
+        const dpr = Math.min(devicePixelRatio || 1, 2);
+        drawCanvas.width = w * dpr;
+        drawCanvas.height = w * dpr;
+        drawCanvas.style.height = w + 'px';
+        dctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function drawSnapPoints() {
+        const pts = [];
+        drawSegments.forEach((s) => {
+            pts.push({ x: s.x1, y: s.y1 });
+            pts.push({ x: s.x2, y: s.y2 });
+            pts.push({ x: (s.x1 + s.x2) / 2, y: (s.y1 + s.y2) / 2 });
+        });
+        return pts;
+    }
+
+    function applyDrawSnap(p) {
+        if (!p) return { x: 0, y: 0, snapped: false };
+        const inner = drawCssSize - 2 * DRAW_PAD;
+        let { x, y } = p;
+        let snapped = false;
+        if ($('#draw-snap-points') && $('#draw-snap-points').checked) {
+            let best = null;
+            let bestD = 8;
+            drawSnapPoints().forEach((q) => {
+                const d = Math.hypot(q.x - x, q.y - y);
+                if (d < bestD) { bestD = d; best = q; }
+            });
+            if (best) return { x: best.x, y: best.y, snapped: true };
+        }
+        if (drawStart && $('#draw-snap-ortho') && $('#draw-snap-ortho').checked) {
+            const dx = x - drawStart.x;
+            const dy = y - drawStart.y;
+            const len = Math.hypot(dx, dy);
+            if (len > 1e-6) {
+                const ang = Math.atan2(dy, dx);
+                const step = Math.PI / 4;
+                const q = Math.round(ang / step) * step;
+                x = drawStart.x + Math.cos(q) * len;
+                y = drawStart.y + Math.sin(q) * len;
+                snapped = true;
+            }
+        }
+        if ($('#draw-snap-grid') && $('#draw-snap-grid').checked) {
+            const g = inner / 8;
+            x = Math.round((x - DRAW_PAD) / g) * g + DRAW_PAD;
+            y = Math.round((y - DRAW_PAD) / g) * g + DRAW_PAD;
+            snapped = true;
+        }
+        x = Math.min(drawCssSize - DRAW_PAD, Math.max(DRAW_PAD, x));
+        y = Math.min(drawCssSize - DRAW_PAD, Math.max(DRAW_PAD, y));
+        return { x, y, snapped };
+    }
+
+    function redrawDrawCanvas() {
+        if (!drawCanvas || !dctx) return;
+        const inner = drawCssSize - 2 * DRAW_PAD;
+        dctx.clearRect(0, 0, drawCssSize, drawCssSize);
+        dctx.strokeStyle = 'rgba(255,255,255,0.08)';
+        dctx.lineWidth = 1;
+        dctx.beginPath();
+        for (let i = 0; i <= 8; i++) {
+            const v = DRAW_PAD + (inner * i) / 8;
+            dctx.moveTo(v, DRAW_PAD);
+            dctx.lineTo(v, drawCssSize - DRAW_PAD);
+            dctx.moveTo(DRAW_PAD, v);
+            dctx.lineTo(drawCssSize - DRAW_PAD, v);
+        }
+        dctx.stroke();
+        dctx.strokeStyle = 'rgba(255,215,0,0.25)';
+        dctx.strokeRect(DRAW_PAD, DRAW_PAD, inner, inner);
+        dctx.strokeStyle = '#FFD700';
+        dctx.lineWidth = 2;
+        dctx.setLineDash([]);
+        dctx.beginPath();
+        drawSegments.forEach((s) => {
+            dctx.moveTo(s.x1, s.y1);
+            dctx.lineTo(s.x2, s.y2);
+        });
+        dctx.stroke();
+        if (drawStart && drawHover) {
+            dctx.strokeStyle = 'rgba(255,215,0,0.6)';
+            dctx.setLineDash([6, 4]);
+            dctx.beginPath();
+            dctx.moveTo(drawStart.x, drawStart.y);
+            dctx.lineTo(drawHover.x, drawHover.y);
+            dctx.stroke();
+            dctx.setLineDash([]);
+        }
+        const dot = drawHover || drawStart;
+        if (dot) {
+            dctx.fillStyle = '#FFD700';
+            dctx.beginPath();
+            dctx.arc(dot.x, dot.y, 3.5, 0, Math.PI * 2);
+            dctx.fill();
+        }
+    }
+
+    function canvasPos(e) {
+        const r = drawCanvas.getBoundingClientRect();
+        const scale = drawCssSize / (r.width || drawCssSize);
+        return { x: (e.clientX - r.left) * scale, y: (e.clientY - r.top) * scale };
+    }
+
+    function scheduleDrawConvert(delay = 300) {
+        if (drawDebounce) clearTimeout(drawDebounce);
+        if (!drawSegments.length) {
+            hideResults();
+            return;
+        }
+        drawDebounce = setTimeout(() => {
+            convert({ isLive: true, shouldScroll: false });
+        }, delay);
+    }
+
+    if (drawCanvas && dctx) {
+        drawCanvasResize();
+        redrawDrawCanvas();
+        addEventListener('resize', () => {
+            drawCanvasResize();
+            redrawDrawCanvas();
+        });
+        drawCanvas.addEventListener('pointermove', (e) => {
+            drawHover = applyDrawSnap(canvasPos(e));
+            redrawDrawCanvas();
+        });
+        drawCanvas.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            const p = applyDrawSnap(canvasPos(e));
+            if (!drawStart) {
+                drawStart = { x: p.x, y: p.y };
+            } else {
+                if (Math.hypot(p.x - drawStart.x, p.y - drawStart.y) > 2) {
+                    drawSegments.push({ x1: drawStart.x, y1: drawStart.y, x2: p.x, y2: p.y });
+                    scheduleDrawConvert();
+                }
+                drawStart = null;
+            }
+            drawHover = null;
+            redrawDrawCanvas();
+        });
+        drawCanvas.addEventListener('pointerleave', () => {
+            drawHover = null;
+            redrawDrawCanvas();
+        });
+        const undoBtn = $('#draw-undo');
+        if (undoBtn) {
+            undoBtn.addEventListener('click', () => {
+                if (drawStart) {
+                    drawStart = null;
+                } else {
+                    drawSegments.pop();
+                }
+                redrawDrawCanvas();
+                scheduleDrawConvert();
+            });
+        }
+        const clearBtn = $('#draw-clear');
+        if (clearBtn) {
+            clearBtn.addEventListener('click', () => {
+                drawSegments = [];
+                drawStart = null;
+                drawHover = null;
+                redrawDrawCanvas();
+                hideResults();
+            });
+        }
+        const tileEl = $('#draw-tilemm');
+        if (tileEl) {
+            tileEl.addEventListener('change', () => scheduleDrawConvert(0));
+        }
+    }
 
     /* ============ Live reactive updates & Convert ============ */
     const alertBox = $('#alert-box');
@@ -537,6 +789,27 @@
         scheduleConvert(0);
     });
 
+    // Tipo de patrón 00 (MODEL/DRAFTING)
+    const patTypeHidden = $('#ctl-patterntype');
+    $$('input[name="patterntype"]').forEach((radio) => {
+        radio.addEventListener('change', () => {
+            if (patTypeHidden) {
+                patTypeHidden.value = radio.value;
+                patTypeHidden.dispatchEvent(new Event('change'));
+            }
+        });
+    });
+
+    if (patTypeHidden) {
+        patTypeHidden.addEventListener('change', () => {
+            const currentRadio = $(`input[name="patterntype"][value="${patTypeHidden.value}"]`);
+            if (currentRadio && !currentRadio.checked) currentRadio.checked = true;
+            if (mode !== 'draw' && !currentFile) return;
+            if (mode === 'draw' && !drawSegments.length) return;
+            convert({ isLive: true, shouldScroll: false });
+        });
+    }
+
     function showError(msg, { keepResults = false } = {}) {
         alertMsg.textContent = msg;
         alertBox.classList.remove('hidden');
@@ -558,6 +831,11 @@
         const isLive = !!opts.isLive;
         const shouldScroll = !!opts.shouldScroll;
         const isManual = !!opts.isManual;
+
+        if (mode === 'draw') {
+            await convertDrawing(opts);
+            return;
+        }
 
         if (!currentFile) {
             showError(t('err.upload'));
@@ -582,6 +860,7 @@
 
         if (mode === 'dxf') {
             fd.append('pattern_name', 'DXF_Pattern');
+            fd.append('pattern_type', $('#ctl-patterntype').value);
         } else {
             const num = (id) => parseFloat($('#' + id).value);
             const bool = (id) => $('#' + id).checked;
@@ -615,6 +894,7 @@
             fd.append('tile_mm', $('#ctl-tilemm').value);
             fd.append('min_dash_mm', '0.3');
             fd.append('min_gap_mm', '0.3');
+            fd.append('pattern_type', $('#ctl-patterntype').value);
         }
 
         const endpoint = mode === 'dxf' ? '/api/convert/dxf' : '/api/convert/image';
@@ -651,9 +931,581 @@
         }
     }
 
+    async function convertDrawing(opts = {}) {
+        const initial = !!opts.initial;
+        const shouldScroll = !!opts.shouldScroll;
+
+        if (!drawSegments.length) {
+            hideResults();
+            return;
+        }
+        if (drawDebounce) {
+            clearTimeout(drawDebounce);
+            drawDebounce = null;
+        }
+        hideAlert();
+        if (initial) {
+            hideResults();
+        } else {
+            results.classList.add('is-updating');
+        }
+
+        const mmPerPx = drawTileMm() / (drawCssSize - 2 * DRAW_PAD);
+        const toMmX = (x) => (x - DRAW_PAD) * mmPerPx;
+        const toMmY = (y) => ((drawCssSize - DRAW_PAD) - y) * mmPerPx;
+        const segments = drawSegments.map((s) => [
+            toMmX(s.x1), toMmY(s.y1), toMmX(s.x2), toMmY(s.y2),
+        ]);
+
+        if (activeAbortController) {
+            activeAbortController.abort();
+        }
+        activeAbortController = new AbortController();
+        const reqId = ++latestRequestId;
+
+        try {
+            const res = await fetch('/api/convert/segments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    segments,
+                    tile_mm: drawTileMm(),
+                    pattern_name: 'Draw_Pattern',
+                    pattern_type: $('#ctl-patterntype').value,
+                }),
+                signal: activeAbortController.signal,
+            });
+            if (reqId !== latestRequestId) return;
+            const json = await res.json();
+            if (!res.ok) {
+                const msg = (json.detail && (json.detail.error || (typeof json.detail === 'string' ? json.detail : null))) || json.error || t('err.network');
+                throw new Error(msg);
+            }
+            json.debug = json.preview;
+            renderResults(json, { initial, shouldScroll });
+        } catch (err) {
+            if (err.name === 'AbortError') {
+                return;
+            }
+            if (reqId !== latestRequestId) return;
+            showError(err.message || t('err.network'), { keepResults: !initial && !!lastPat });
+        } finally {
+            if (reqId === latestRequestId) {
+                results.classList.remove('is-updating');
+            }
+        }
+    }
+
+    /* ============ CAD Interactive Engine (Comparativa) ============ */
+    const cadCanvas = $('#cad-canvas');
+    const cadCtx = cadCanvas ? cadCanvas.getContext('2d') : null;
+    const cadHintTxt = $('#cad-hint');
+
+    let cadSegments = [];          // [[x1, y1, x2, y2], ...] in mm
+    let cadInitialSegments = [];   // copy for reset
+    let cadUndoStack = [];         // history stack of segment arrays
+    let cadTool = 'trim';          // 'trim' | 'draw' | 'del'
+    let cadBoundaryIdx = -1;       // index of active boundary segment (-1 if none)
+    let cadHoverIdx = -1;          // hovered segment index
+    let cadTileW = 100;            // tile width in mm
+    let cadTileH = 100;            // tile height in mm
+    let cadDrawStart = null;       // { x, y } in mm
+    let cadHoverPoint = null;      // { x, y } in mm
+    let cadDebounceTimer = null;
+    let cadActiveAbort = null;
+    let cadReqId = 0;
+
+    function getCadTransform() {
+        if (!cadCanvas) return { scale: 1, offX: 0, offY: 0, w: 100, h: 100, tileW: 100, tileH: 100 };
+        const rect = cadCanvas.getBoundingClientRect();
+        const w = rect.width;
+        const h = rect.height;
+        const tileW = Math.max(cadTileW, 1);
+        const tileH = Math.max(cadTileH, 1);
+        const scale = Math.min(w / tileW, h / tileH);
+        const offX = (w - tileW * scale) / 2;
+        const offY = (h - tileH * scale) / 2;
+        return { scale, offX, offY, w, h, tileW, tileH };
+    }
+
+    function getCadSegmentColor(s) {
+        const dx = s[2] - s[0];
+        const dy = s[3] - s[1];
+        let deg = (Math.atan2(dy, dx) * 180) / Math.PI;
+        if (deg < 0) deg += 180;
+        if (deg >= 180) deg -= 180;
+        if (deg < 12 || deg > 168) return '#DC3232'; // Rojo = horizontal
+        if (Math.abs(deg - 90) < 12) return '#3232DC'; // Azul = vertical
+        if (Math.abs(deg - 45) < 12) return '#32B432'; // Verde = 45°
+        if (Math.abs(deg - 135) < 12) return '#B432B4'; // Morado = 135°
+        return '#707070'; // Gris = otro
+    }
+
+    function cadMmToPx(x_mm, y_mm, tf) {
+        return {
+            x: tf.offX + x_mm * tf.scale,
+            y: tf.offY + (tf.tileH - y_mm) * tf.scale
+        };
+    }
+
+    function cadPxToMm(px_x, px_y, tf) {
+        return {
+            x: (px_x - tf.offX) / tf.scale,
+            y: tf.tileH - ((px_y - tf.offY) / tf.scale)
+        };
+    }
+
+    function distPtToSegmentPx(px, py, x1, y1, x2, y2) {
+        const dx = x2 - x1;
+        const dy = y2 - y1;
+        const lenSq = dx * dx + dy * dy;
+        if (lenSq < 1e-6) return Math.hypot(px - x1, py - y1);
+        let t = ((px - x1) * dx + (py - y1) * dy) / lenSq;
+        t = Math.max(0, Math.min(1, t));
+        return Math.hypot(px - (x1 + t * dx), py - (y1 + t * dy));
+    }
+
+    function findClosestSegment(px, py, tf, maxDistPx = 14) {
+        let bestIdx = -1;
+        let bestDist = maxDistPx;
+        for (let i = 0; i < cadSegments.length; i++) {
+            const s = cadSegments[i];
+            const p1 = cadMmToPx(s[0], s[1], tf);
+            const p2 = cadMmToPx(s[2], s[3], tf);
+            const d = distPtToSegmentPx(px, py, p1.x, p1.y, p2.x, p2.y);
+            if (d < bestDist) {
+                bestDist = d;
+                bestIdx = i;
+            }
+        }
+        return bestIdx;
+    }
+
+    function deleteSegmentsAt(px, py, tf, maxDistPx = 18) {
+        const closestIdx = findClosestSegment(px, py, tf, maxDistPx);
+        if (closestIdx < 0) return false;
+
+        cadPushUndo();
+        const toRemove = new Set();
+        toRemove.add(closestIdx);
+
+        const target = cadSegments[closestIdx];
+        const tp1 = cadMmToPx(target[0], target[1], tf);
+        const tp2 = cadMmToPx(target[2], target[3], tf);
+        const tAng = Math.atan2(tp2.y - tp1.y, tp2.x - tp1.x);
+
+        for (let i = 0; i < cadSegments.length; i++) {
+            if (i === closestIdx) continue;
+            const s = cadSegments[i];
+            const p1 = cadMmToPx(s[0], s[1], tf);
+            const p2 = cadMmToPx(s[2], s[3], tf);
+            const d = distPtToSegmentPx(px, py, p1.x, p1.y, p2.x, p2.y);
+            if (d <= maxDistPx) {
+                const sAng = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+                let dAng = Math.abs(tAng - sAng);
+                while (dAng > Math.PI) dAng = Math.abs(dAng - Math.PI);
+                if (dAng < 0.2 || Math.abs(dAng - Math.PI) < 0.2) {
+                    toRemove.add(i);
+                }
+            }
+        }
+
+        cadSegments = cadSegments.filter((_, i) => !toRemove.has(i));
+        cadBoundaryIdx = -1;
+        cadHoverIdx = -1;
+        renderCadCanvas();
+        scheduleCadSync();
+        return true;
+    }
+
+    function intersectInfiniteLines(p1x, p1y, p2x, p2y, q1x, q1y, q2x, q2y) {
+        const dpx = p2x - p1x;
+        const dpy = p2y - p1y;
+        const dqx = q2x - q1x;
+        const dqy = q2y - q1y;
+        const det = dpx * dqy - dpy * dqx;
+        if (Math.abs(det) < 1e-9) return null;
+        const t = ((q1x - p1x) * dqy - (q1y - p1y) * dqx) / det;
+        return {
+            x: p1x + t * dpx,
+            y: p1y + t * dpy
+        };
+    }
+
+    function performTrimExtend(targetIdx, clickMm) {
+        if (cadBoundaryIdx < 0 || cadBoundaryIdx >= cadSegments.length) return false;
+        if (targetIdx === cadBoundaryIdx) return false;
+
+        const b = cadSegments[cadBoundaryIdx];
+        const s = cadSegments[targetIdx];
+
+        const inter = intersectInfiniteLines(b[0], b[1], b[2], b[3], s[0], s[1], s[2], s[3]);
+        if (!inter) return false;
+
+        const sdx = s[2] - s[0];
+        const sdy = s[3] - s[1];
+        const sLenSq = sdx * sdx + sdy * sdy;
+        if (sLenSq < 1e-6) return false;
+
+        const u = ((inter.x - s[0]) * sdx + (inter.y - s[1]) * sdy) / sLenSq;
+
+        cadPushUndo();
+
+        // Si la intersección cae estrictamente dentro del segmento: TRIM
+        if (u > 0.005 && u < 0.995) {
+            const d1 = distPtToSegmentPx(clickMm.x, clickMm.y, s[0], s[1], inter.x, inter.y);
+            const d2 = distPtToSegmentPx(clickMm.x, clickMm.y, inter.x, inter.y, s[2], s[3]);
+            if (d1 < d2) {
+                cadSegments[targetIdx] = [inter.x, inter.y, s[2], s[3]];
+            } else {
+                cadSegments[targetIdx] = [s[0], s[1], inter.x, inter.y];
+            }
+        } else {
+            // Si la intersección cae fuera: EXTEND
+            const distStart = Math.hypot(s[0] - inter.x, s[1] - inter.y);
+            const distEnd = Math.hypot(s[2] - inter.x, s[3] - inter.y);
+            if (distStart < distEnd) {
+                cadSegments[targetIdx] = [inter.x, inter.y, s[2], s[3]];
+            } else {
+                cadSegments[targetIdx] = [s[0], s[1], inter.x, inter.y];
+            }
+        }
+        return true;
+    }
+
+    function cadPushUndo() {
+        cadUndoStack.push(cadSegments.map((s) => [...s]));
+        if (cadUndoStack.length > 30) cadUndoStack.shift();
+    }
+
+    function cadUndo() {
+        if (!cadUndoStack.length) return;
+        cadSegments = cadUndoStack.pop();
+        cadBoundaryIdx = -1;
+        cadHoverIdx = -1;
+        cadDrawStart = null;
+        renderCadCanvas();
+        scheduleCadSync();
+    }
+
+    function cadReset() {
+        if (!cadInitialSegments.length) return;
+        cadPushUndo();
+        cadSegments = cadInitialSegments.map((s) => [...s]);
+        cadBoundaryIdx = -1;
+        cadHoverIdx = -1;
+        cadDrawStart = null;
+        renderCadCanvas();
+        scheduleCadSync();
+    }
+
+    function cadFindSnap(mmX, mmY, tf) {
+        let bestPt = null;
+        let bestDistPx = 12;
+        const curPx = cadMmToPx(mmX, mmY, tf);
+
+        for (const s of cadSegments) {
+            const ep1 = cadMmToPx(s[0], s[1], tf);
+            const ep2 = cadMmToPx(s[2], s[3], tf);
+            const d1 = Math.hypot(curPx.x - ep1.x, curPx.y - ep1.y);
+            if (d1 < bestDistPx) {
+                bestDistPx = d1;
+                bestPt = { x: s[0], y: s[1] };
+            }
+            const d2 = Math.hypot(curPx.x - ep2.x, curPx.y - ep2.y);
+            if (d2 < bestDistPx) {
+                bestDistPx = d2;
+                bestPt = { x: s[2], y: s[3] };
+            }
+        }
+        if (bestPt) return bestPt;
+
+        if (cadDrawStart) {
+            const dx = mmX - cadDrawStart.x;
+            const dy = mmY - cadDrawStart.y;
+            const dist = Math.hypot(dx, dy);
+            if (dist > 1.5) {
+                let ang = (Math.atan2(dy, dx) * 180) / Math.PI;
+                const snapAngs = [0, 45, 90, 135, 180, -180, -135, -90, -45];
+                let closestAng = ang;
+                let minDiff = 8;
+                for (const sa of snapAngs) {
+                    const diff = Math.abs(ang - sa);
+                    if (diff < minDiff) {
+                        minDiff = diff;
+                        closestAng = sa;
+                    }
+                }
+                if (minDiff < 8) {
+                    const rad = (closestAng * Math.PI) / 180;
+                    return {
+                        x: cadDrawStart.x + Math.cos(rad) * dist,
+                        y: cadDrawStart.y + Math.sin(rad) * dist,
+                    };
+                }
+            }
+        }
+        return { x: mmX, y: mmY };
+    }
+
+    function sizeCadCanvas() {
+        if (!cadCanvas) return;
+        const rect = cadCanvas.parentElement.getBoundingClientRect();
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.max(Math.floor(rect.width), 100);
+        const h = Math.max(Math.floor(rect.height || rect.width), 100);
+        cadCanvas.width = w * dpr;
+        cadCanvas.height = h * dpr;
+        cadCanvas.style.width = w + 'px';
+        cadCanvas.style.height = h + 'px';
+        if (cadCtx) cadCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function renderCadCanvas() {
+        if (!cadCanvas || !cadCtx) return;
+        const tf = getCadTransform();
+        cadCtx.clearRect(0, 0, tf.w, tf.h);
+
+        // Marco del tile
+        const p00 = cadMmToPx(0, 0, tf);
+        const p11 = cadMmToPx(tf.tileW, tf.tileH, tf);
+        const boxX = Math.min(p00.x, p11.x);
+        const boxY = Math.min(p00.y, p11.y);
+        const boxW = Math.abs(p11.x - p00.x);
+        const boxH = Math.abs(p11.y - p00.y);
+
+        cadCtx.strokeStyle = 'rgba(255, 215, 0, 0.16)';
+        cadCtx.lineWidth = 1;
+        cadCtx.setLineDash([4, 4]);
+        cadCtx.strokeRect(boxX, boxY, boxW, boxH);
+        cadCtx.setLineDash([]);
+
+        // Guía infinita del vector límite activo
+        if (cadBoundaryIdx >= 0 && cadBoundaryIdx < cadSegments.length) {
+            const b = cadSegments[cadBoundaryIdx];
+            const p1 = cadMmToPx(b[0], b[1], tf);
+            const p2 = cadMmToPx(b[2], b[3], tf);
+            const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+            const diag = Math.hypot(tf.w, tf.h) * 2;
+            const infX1 = p1.x - Math.cos(angle) * diag;
+            const infY1 = p1.y - Math.sin(angle) * diag;
+            const infX2 = p1.x + Math.cos(angle) * diag;
+            const infY2 = p1.y + Math.sin(angle) * diag;
+
+            cadCtx.strokeStyle = 'rgba(0, 229, 255, 0.55)';
+            cadCtx.lineWidth = 1.5;
+            cadCtx.setLineDash([6, 6]);
+            cadCtx.beginPath();
+            cadCtx.moveTo(infX1, infY1);
+            cadCtx.lineTo(infX2, infY2);
+            cadCtx.stroke();
+            cadCtx.setLineDash([]);
+        }
+
+        // Trazado de segmentos
+        cadSegments.forEach((s, idx) => {
+            const isBoundary = idx === cadBoundaryIdx;
+            const isHover = idx === cadHoverIdx;
+            const p1 = cadMmToPx(s[0], s[1], tf);
+            const p2 = cadMmToPx(s[2], s[3], tf);
+
+            cadCtx.beginPath();
+            cadCtx.moveTo(p1.x, p1.y);
+            cadCtx.lineTo(p2.x, p2.y);
+
+            if (isBoundary) {
+                cadCtx.strokeStyle = '#00E5FF';
+                cadCtx.lineWidth = 3;
+                cadCtx.shadowColor = 'rgba(0, 229, 255, 0.6)';
+                cadCtx.shadowBlur = 8;
+            } else if (isHover) {
+                const isDel = cadTool === 'del' || cadTool === 'delete';
+                cadCtx.strokeStyle = isDel ? '#FF2222' : '#FFFFFF';
+                cadCtx.lineWidth = 3.2;
+                cadCtx.shadowColor = isDel ? 'rgba(255, 34, 34, 0.85)' : 'rgba(255, 255, 255, 0.85)';
+                cadCtx.shadowBlur = 6;
+            } else {
+                cadCtx.strokeStyle = getCadSegmentColor(s);
+                cadCtx.lineWidth = 2.0;
+                cadCtx.shadowColor = 'transparent';
+                cadCtx.shadowBlur = 0;
+            }
+            cadCtx.stroke();
+            cadCtx.shadowBlur = 0;
+
+            // Puntos extremos
+            cadCtx.fillStyle = isBoundary ? '#00E5FF' : isHover ? '#FFD700' : 'rgba(255, 255, 255, 0.7)';
+            cadCtx.beginPath();
+            cadCtx.arc(p1.x, p1.y, 2, 0, Math.PI * 2);
+            cadCtx.arc(p2.x, p2.y, 2, 0, Math.PI * 2);
+            cadCtx.fill();
+        });
+
+        // Línea en construcción
+        if (cadTool === 'draw' && cadDrawStart && cadHoverPoint) {
+            const p1 = cadMmToPx(cadDrawStart.x, cadDrawStart.y, tf);
+            const p2 = cadMmToPx(cadHoverPoint.x, cadHoverPoint.y, tf);
+            cadCtx.strokeStyle = 'rgba(255, 215, 0, 0.9)';
+            cadCtx.lineWidth = 2;
+            cadCtx.setLineDash([5, 5]);
+            cadCtx.beginPath();
+            cadCtx.moveTo(p1.x, p1.y);
+            cadCtx.lineTo(p2.x, p2.y);
+            cadCtx.stroke();
+            cadCtx.setLineDash([]);
+        }
+
+        // Indicador de snap
+        if (cadTool === 'draw' && cadHoverPoint) {
+            const hp = cadMmToPx(cadHoverPoint.x, cadHoverPoint.y, tf);
+            cadCtx.fillStyle = '#00E5FF';
+            cadCtx.beginPath();
+            cadCtx.arc(hp.x, hp.y, 4, 0, Math.PI * 2);
+            cadCtx.fill();
+        }
+    }
+
+    function scheduleCadSync(delay = 250) {
+        if (cadDebounceTimer) clearTimeout(cadDebounceTimer);
+        cadDebounceTimer = setTimeout(async () => {
+            if (!cadSegments.length) return;
+            if (cadActiveAbort) cadActiveAbort.abort();
+            cadActiveAbort = new AbortController();
+            const reqId = ++cadReqId;
+
+            const payload = {
+                segments: cadSegments,
+                tile_mm: Math.max(cadTileW, cadTileH),
+                pattern_name: 'CAD_Pattern',
+                pattern_type: $('#ctl-patterntype').value,
+            };
+
+            results.classList.add('is-updating');
+            try {
+                const res = await fetch('/api/convert/segments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload),
+                    signal: cadActiveAbort.signal,
+                });
+                if (reqId !== cadReqId) return;
+                const json = await res.json();
+                if (!res.ok) return;
+
+                lastPat = json.pat_content;
+                $('#pat-code').value = json.pat_content;
+                $('#preview-img').src = json.preview || '';
+                $('#stats').textContent = json.stats || '';
+            } catch (err) {
+                if (err.name !== 'AbortError') console.error(err);
+            } finally {
+                if (reqId === cadReqId) {
+                    results.classList.remove('is-updating');
+                }
+            }
+        }, delay);
+    }
+
+    if (cadCanvas) {
+        cadCanvas.addEventListener('pointermove', (e) => {
+            const rect = cadCanvas.getBoundingClientRect();
+            const pxX = e.clientX - rect.left;
+            const pxY = e.clientY - rect.top;
+            const tf = getCadTransform();
+            const mm = cadPxToMm(pxX, pxY, tf);
+
+            if (cadTool === 'draw') {
+                cadHoverPoint = cadFindSnap(mm.x, mm.y, tf);
+                cadHoverIdx = -1;
+                cadCanvas.style.cursor = 'crosshair';
+                renderCadCanvas();
+            } else {
+                const idx = findClosestSegment(pxX, pxY, tf, 18);
+                const isDel = cadTool === 'del' || cadTool === 'delete';
+                if (isDel || cadTool === 'trim') {
+                    cadCanvas.style.cursor = idx >= 0 ? 'pointer' : 'default';
+                }
+                if (idx !== cadHoverIdx) {
+                    cadHoverIdx = idx;
+                    renderCadCanvas();
+                }
+            }
+        });
+
+        cadCanvas.addEventListener('pointerleave', () => {
+            cadHoverIdx = -1;
+            cadHoverPoint = null;
+            renderCadCanvas();
+        });
+
+        cadCanvas.addEventListener('pointerdown', (e) => {
+            const rect = cadCanvas.getBoundingClientRect();
+            const pxX = e.clientX - rect.left;
+            const pxY = e.clientY - rect.top;
+            const tf = getCadTransform();
+            const mm = cadPxToMm(pxX, pxY, tf);
+
+            if (cadTool === 'trim') {
+                const idx = findClosestSegment(pxX, pxY, tf, 16);
+                if (cadBoundaryIdx < 0) {
+                    if (idx >= 0) {
+                        cadBoundaryIdx = idx;
+                    }
+                } else {
+                    if (idx >= 0 && idx !== cadBoundaryIdx) {
+                        performTrimExtend(idx, mm);
+                        scheduleCadSync();
+                    } else if (idx < 0) {
+                        cadBoundaryIdx = -1;
+                    }
+                }
+                renderCadCanvas();
+            } else if (cadTool === 'del' || cadTool === 'delete') {
+                deleteSegmentsAt(pxX, pxY, tf, 18);
+            } else if (cadTool === 'draw') {
+                const snap = cadFindSnap(mm.x, mm.y, tf);
+                if (!cadDrawStart) {
+                    cadDrawStart = snap;
+                } else {
+                    const dist = Math.hypot(snap.x - cadDrawStart.x, snap.y - cadDrawStart.y);
+                    if (dist > 0.5) {
+                        cadPushUndo();
+                        cadSegments.push([cadDrawStart.x, cadDrawStart.y, snap.x, snap.y]);
+                        cadDrawStart = null;
+                        renderCadCanvas();
+                        scheduleCadSync();
+                    }
+                }
+            }
+        });
+    }
+
+    $$('.cad-btn[data-tool]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+            cadTool = btn.dataset.tool;
+            $$('.cad-btn[data-tool]').forEach((b) => b.classList.toggle('is-active', b === btn));
+            cadBoundaryIdx = -1;
+            cadDrawStart = null;
+            if (cadHintTxt) cadHintTxt.textContent = t('cad.hint.' + cadTool);
+            renderCadCanvas();
+        });
+    });
+
+    const cadUndoBtn = $('#cad-undo');
+    if (cadUndoBtn) cadUndoBtn.addEventListener('click', cadUndo);
+
+    const cadResetBtn = $('#cad-reset');
+    if (cadResetBtn) cadResetBtn.addEventListener('click', cadReset);
+
+    window.addEventListener('resize', () => {
+        if (cadSegments.length) {
+            sizeCadCanvas();
+            renderCadCanvas();
+        }
+    });
+
     /* ============ Results ============ */
     let lastPat = null;
-
     function renderResults(json, { initial = false, shouldScroll = false } = {}) {
         lastPat = json.pat_content;
 
@@ -668,9 +1520,27 @@
         });
 
         $('#preview-img').src = json.preview || '';
-        $('#debug-img').src = json.debug || '';
+        $('#debug-img').src = (json.segments_data && json.segments_data.length && json.debug_base)
+            ? json.debug_base
+            : (json.debug || '');
 
         $('#pat-code').value = json.pat_content;
+
+        // Inicializar el lienzo interactivo CAD sobre la Comparativa
+        if (json.segments_data && json.segments_data.length) {
+            cadSegments = json.segments_data.map((s) => [...s]);
+            cadInitialSegments = json.segments_data.map((s) => [...s]);
+            cadUndoStack = [];
+            cadBoundaryIdx = -1;
+            cadHoverIdx = -1;
+            cadDrawStart = null;
+            cadTileW = json.tile_w || 100;
+            cadTileH = json.tile_h || 100;
+            setTimeout(() => {
+                sizeCadCanvas();
+                renderCadCanvas();
+            }, 60);
+        }
 
         const wasHidden = results.classList.contains('hidden');
         results.classList.remove('hidden');
@@ -701,17 +1571,77 @@
         });
     }
 
+    async function saveFileWithFolderPicker(blob, defaultFilename, description, ext) {
+        // Intenta abrir el diálogo nativo del sistema ("Guardar como...") para elegir carpeta
+        if (window.showSaveFilePicker) {
+            try {
+                const acceptObj = {};
+                acceptObj[blob.type || 'application/octet-stream'] = [ext];
+                const handle = await window.showSaveFilePicker({
+                    suggestedName: defaultFilename,
+                    types: [{
+                        description: description,
+                        accept: acceptObj
+                    }]
+                });
+                const writable = await handle.createWritable();
+                await writable.write(blob);
+                await writable.close();
+                return true;
+            } catch (err) {
+                // Si el usuario canceló voluntariamente el diálogo de carpetas, no hacemos nada
+                if (err && err.name === 'AbortError') return false;
+            }
+        }
+
+        // Fallback estándar si no está disponible showSaveFilePicker
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = defaultFilename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(() => URL.revokeObjectURL(url), 1200);
+        return true;
+    }
+
     const downloadBtn = $('#download-btn');
     if (downloadBtn) {
-        downloadBtn.addEventListener('click', () => {
+        downloadBtn.addEventListener('click', async () => {
             if (!lastPat) return;
+            const baseName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'HATCH.it';
+            const filename = `${baseName}.pat`;
             const blob = new Blob([lastPat], { type: 'text/plain' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = 'HATCH.it.pat';
-            a.click();
-            URL.revokeObjectURL(url);
+            await saveFileWithFolderPicker(blob, filename, 'Patrón de relleno Revit (.pat)', '.pat');
+        });
+    }
+
+    const downloadDxfBtn = $('#download-dxf-btn');
+    if (downloadDxfBtn) {
+        downloadDxfBtn.addEventListener('click', async () => {
+            if (!cadSegments.length) return;
+            try {
+                const baseName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'HATCH.it';
+                const res = await fetch('/api/export/dxf/segments', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        segments: cadSegments,
+                        pattern_name: baseName
+                    })
+                });
+                const json = await res.json();
+                if (!res.ok || !json.dxf_base64) throw new Error('Export error');
+                const binary = atob(json.dxf_base64);
+                const bytes = new Uint8Array(binary.length);
+                for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+                const blob = new Blob([bytes], { type: 'application/dxf' });
+                const filename = `${baseName}.dxf`;
+                await saveFileWithFolderPicker(blob, filename, 'Archivo vectorial AutoCAD DXF (.dxf)', '.dxf');
+            } catch (err) {
+                showError(t('err.network'), { keepResults: true });
+            }
         });
     }
 
@@ -730,6 +1660,25 @@
         });
     }, { threshold: 0.12 });
     $$('.reveal').forEach((el) => io.observe(el));
+
+    /* ============ FAQ Accordion ============ */
+    const faqItems = $$('.faq-item');
+    faqItems.forEach((item) => {
+        const summary = item.querySelector('summary');
+        if (!summary) return;
+        summary.addEventListener('click', (e) => {
+            if (item.open) {
+                e.preventDefault();
+                return;
+            }
+            faqItems.forEach((other) => {
+                if (other !== item) other.open = false;
+            });
+        });
+    });
+    if (faqItems.length && !faqItems.some((i) => i.open)) {
+        faqItems[0].open = true;
+    }
 
     /* ============ Health check ============ */
     fetch('/api/health').catch(() => {});

@@ -21,6 +21,9 @@ if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
 
 from core_logic import DXFtoPatConverter, ImageToPatConverter, render_pat_preview
+from dxf_exporter import image_bytes_to_dxf, write_dxf
+import pat_compiler
+from segment_cleaner import dedup_duplicate_segments
 
 MAX_UPLOAD_BYTES = 12 * 1024 * 1024
 MAX_PAT_BYTES = 2 * 1024 * 1024
@@ -84,8 +87,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-IMAGE_METHODS = ("hough", "lsd", "fld", "contour")
+IMAGE_METHODS = ("hough", "lsd", "contour")
 FILTER_MODES = ("gaussian", "bilateral", "none")
+PATTERN_TYPES = ("MODEL", "DRAFTING")
+
+
+def _validate_pattern_type(pattern_type):
+    pt = str(pattern_type).upper()
+    if pt not in PATTERN_TYPES:
+        raise HTTPException(400, detail={"error": f"Tipo de patrón inválido: {pattern_type} (usa MODEL o DRAFTING)"})
+    return pt
 
 
 def _validate_image_params(method, filter_mode):
@@ -111,6 +122,7 @@ def _build_image_result(result, elapsed_ms):
         "pat_content": pat_content,
         "preview": img_to_data_url(result["pat_preview"]),
         "debug": img_to_data_url(result["debug_img"]),
+        "debug_base": img_to_data_url(result["debug_base"]) if result.get("debug_base") is not None else "",
         "stats": clean_text(result.get("stats", "")),
         "warnings": warnings,
         "num_entries": result.get("num_entries"),
@@ -121,6 +133,7 @@ def _build_image_result(result, elapsed_ms):
         "period_y_px": result.get("period_y_px"),
         "stroke_width_px": result.get("stroke_width_px"),
         "dedup_px": result.get("dedup_px"),
+        "segments_data": result.get("segments_mm", []),
         "elapsed_ms": elapsed_ms,
     }
 
@@ -156,9 +169,11 @@ def convert_image(
     tile_mm: float = Form(100.0),
     min_dash_mm: float = Form(0.3),
     min_gap_mm: float = Form(0.3),
+    pattern_type: str = Form("MODEL"),
 ):
     """Convierte una imagen a PAT. Los parámetros replican el contrato de app.py."""
     _validate_image_params(method, filter_mode)
+    pattern_type = _validate_pattern_type(pattern_type)
 
     data = file.file.read()
     if not data:
@@ -180,6 +195,7 @@ def convert_image(
         "offset_x": offset_x, "offset_y": offset_y,
         "max_resolution": max_resolution, "tile_mm": tile_mm,
         "min_dash_mm": min_dash_mm, "min_gap_mm": min_gap_mm,
+        "pattern_type": pattern_type,
     }
     key = hashlib.md5(data + repr(sorted(params.items())).encode()).hexdigest()
 
@@ -199,15 +215,17 @@ def convert_image(
 def convert_dxf(
     file: UploadFile = File(...),
     pattern_name: str = Form("DXF_Pattern"),
+    pattern_type: str = Form("MODEL"),
 ):
     """Convierte un DXF a PAT (explosión completa de entidades)."""
+    pattern_type = _validate_pattern_type(pattern_type)
     data = file.file.read()
     if not data:
         raise HTTPException(400, detail={"error": "Archivo vacío"})
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, detail={"error": "El archivo supera 12 MB"})
 
-    key = hashlib.md5(data + pattern_name.encode()).hexdigest()
+    key = hashlib.md5(data + pattern_name.encode() + pattern_type.encode()).hexdigest()
     cached = dxf_cache.get(key)
     if cached is not None:
         return _build_dxf_result(cached, 0)
@@ -218,7 +236,7 @@ def convert_dxf(
             tmp.write(data)
             tmp_path = tmp.name
         t0 = time.perf_counter()
-        result = DXFtoPatConverter().convert(tmp_path, pattern_name=pattern_name)
+        result = DXFtoPatConverter().convert(tmp_path, pattern_name=pattern_name, pattern_type=pattern_type)
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
     finally:
         if tmp_path:
@@ -243,6 +261,131 @@ def _build_dxf_result(result, elapsed_ms):
         "tile_h": result.get("tile_h"),
         "segments": result.get("segments"),
         "ignored_entities": result.get("ignored_entities"),
+        "segments_data": result.get("segments_mm", []),
+        "elapsed_ms": elapsed_ms,
+    }
+
+
+@app.post("/api/export/dxf")
+def export_dxf(
+    file: UploadFile = File(...),
+    method: str = Form("hough"),
+    canny_low: int = Form(50),
+    canny_high: int = Form(150),
+    blur_size: int = Form(3),
+    param1: float = Form(20),
+    param2: float = Form(5),
+    filter_mode: str = Form("gaussian"),
+    use_skeleton: bool = Form(False),
+    max_resolution: int = Form(400),
+    tile_mm: float = Form(100.0),
+):
+    """Vectoriza una imagen y devuelve el DXF (líneas con color fuente)."""
+    _validate_image_params(method, filter_mode)
+    data = file.file.read()
+    if not data:
+        raise HTTPException(400, detail={"error": "Archivo vacío"})
+    if len(data) > MAX_UPLOAD_BYTES:
+        raise HTTPException(400, detail={"error": "El archivo supera 12 MB"})
+
+    result = image_bytes_to_dxf(
+        data, method=method, canny_low=canny_low, canny_high=canny_high,
+        blur_size=blur_size, param1=param1, param2=param2,
+        filter_mode=filter_mode, use_skeleton=use_skeleton,
+        max_resolution=max_resolution, tile_mm=tile_mm,
+    )
+    if "error" in result:
+        raise HTTPException(status_code=400, detail={"error": clean_text(result["error"])})
+    return {
+        "filename": "HATCH.it.dxf",
+        "dxf_base64": base64.b64encode(result["dxf_content"]).decode("ascii"),
+        "segments": result["segments"],
+        "stats": clean_text(result.get("stats", "")),
+    }
+
+
+class SegmentsDxfRequest(BaseModel):
+    segments: list
+    filename: str = "HATCH.it.dxf"
+
+
+@app.post("/api/export/dxf/segments")
+def export_dxf_from_segments(req: SegmentsDxfRequest):
+    """Exporta los segmentos editados en el lienzo directamente a DXF."""
+    segs = []
+    for s in req.segments:
+        if isinstance(s, (list, tuple)) and len(s) >= 4:
+            try:
+                x1, y1, x2, y2 = float(s[0]), float(s[1]), float(s[2]), float(s[3])
+                segs.append((x1, y1, x2, y2))
+            except (ValueError, TypeError):
+                continue
+    if not segs:
+        raise HTTPException(400, detail={"error": "No hay segmentos válidos"})
+    dxf_bytes = write_dxf(segs)
+    return {
+        "filename": req.filename,
+        "dxf_base64": base64.b64encode(dxf_bytes).decode("ascii"),
+        "segments": len(segs),
+    }
+
+
+class SegmentsRequest(BaseModel):
+    segments: list
+    tile_mm: float = Field(100.0, gt=0)
+    pattern_name: str = "Draw_Pattern"
+    pattern_type: str = "MODEL"
+
+
+@app.post("/api/convert/segments")
+def convert_segments(req: SegmentsRequest):
+    """Convierte segmentos dibujados (mm, Y-up, coords del tile) a PAT."""
+    pattern_type = _validate_pattern_type(req.pattern_type)
+    segs = []
+    for s in req.segments:
+        if not isinstance(s, (list, tuple)) or len(s) != 4:
+            continue
+        try:
+            segs.append(tuple(float(v) for v in s))
+        except (TypeError, ValueError):
+            continue
+    if not segs:
+        raise HTTPException(400, detail={"error": "Sin segmentos válidos"})
+    if len(segs) > 2000:
+        raise HTTPException(400, detail={"error": "Demasiados segmentos (máx. 2000)"})
+
+    min_x = min(min(s[0], s[2]) for s in segs)
+    min_y = min(min(s[1], s[3]) for s in segs)
+    if min_x < -1e-4 or min_y < -1e-4:
+        segs = [(x1 - min_x, y1 - min_y, x2 - min_x, y2 - min_y) for x1, y1, x2, y2 in segs]
+
+    tile = float(req.tile_mm)
+    t0 = time.perf_counter()
+    segs, removed = dedup_duplicate_segments(segs, tile)
+    try:
+        compiled = pat_compiler.compile_pat_perline(
+            segs, name=req.pattern_name or "Draw_Pattern",
+            desc="HATCH.it draw pattern", tile_size=tile,
+            coord_nd=6, dash_nd=6, pattern_type=pattern_type,
+        )
+    except ValueError as e:
+        raise HTTPException(400, detail={"error": clean_text(str(e))})
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+
+    pat_content = compiled["pat_content"]
+    img = render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0)
+    stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile} mm"
+    if removed:
+        stats += f" | duplicados eliminados: {removed}"
+    return {
+        "pat_content": pat_content,
+        "preview": img_to_data_url(img),
+        "stats": stats,
+        "warnings": [],
+        "num_entries": compiled["num_entries"],
+        "tile_w": tile,
+        "tile_h": tile,
+        "segments": len(segs),
         "elapsed_ms": elapsed_ms,
     }
 

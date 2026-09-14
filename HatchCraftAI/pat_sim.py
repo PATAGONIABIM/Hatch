@@ -78,17 +78,24 @@ def iter_entry_segments(entry, rect):
     dxv, dyv = entry["dx"], entry["dy"]
     dashes = entry["dashes"]
 
+    # En la semántica oficial AutoCAD/Revit PAT:
+    # dx se mide PARALELO a la línea (dirección u),
+    # dy se mide PERPENDICULAR a la línea (90° CCW, dirección v = (-uy, ux)).
+    # El vector de desplazamiento en coordenadas del mundo es:
+    wx = dxv * ux - dyv * uy
+    wy = dxv * uy + dyv * ux
+
     corners = [(rect[0], rect[1]),
                (rect[0] + rect[2], rect[1]),
                (rect[0], rect[1] + rect[3]),
                (rect[0] + rect[2], rect[1] + rect[3])]
 
-    dlen = math.hypot(dxv, dyv)
+    dlen = math.hypot(wx, wy)
     cycle = sum(abs(d) for d in dashes)
 
     if dlen > EPS:
-        dux, duy = dxv / dlen, dyv / dlen
-        dprojs = [px * dux + py * duy for px, py in corners]
+        dux, duy = wx / dlen, wy / dlen
+        dprojs = [(px - ox) * dux + (py - oy) * duy for px, py in corners]
         kmin = int(math.floor(min(dprojs) / dlen)) - 1
         kmax = int(math.ceil(max(dprojs) / dlen)) + 1
         if kmax - kmin > 1200:
@@ -102,9 +109,9 @@ def iter_entry_segments(entry, rect):
     t_lo, t_hi = min(uprojs), max(uprojs)
 
     for k in range(kmin, kmax + 1):
-        bx = ox + k * dxv
-        by = oy + k * dyv
-        shift_t = k * (dxv * ux + dyv * uy)
+        bx = ox + k * wx
+        by = oy + k * wy
+        shift_t = k * dxv
         rmin = t_lo - shift_t
         rmax = t_hi - shift_t
 

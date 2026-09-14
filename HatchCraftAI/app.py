@@ -20,6 +20,14 @@ mode = st.radio("Selecciona el modo:",
                 ["📁 DXF (AutoCAD)", "🖼️ Imagen (Canny/Skeleton/FLD)"],
                 horizontal=True)
 
+pattern_type_label = st.radio(
+    "Tipo de patrón de relleno (Revit):",
+    ["📦 Modelo (usa escala real)", "📐 Diseño/Detalle (escala fija de símbolo)"],
+    horizontal=True,
+    help="Modelo: unidades reales que escalan con el modelo. Diseño/Detalle: escala fija de anotación."
+)
+pattern_type = "MODEL" if "Modelo" in pattern_type_label else "DRAFTING"
+
 col1, col2 = st.columns([1, 1])
 
 with col1:
@@ -44,7 +52,7 @@ with col1:
 
                 with st.spinner("🔄 Convirtiendo DXF a PAT..."):
                     converter = DXFtoPatConverter()
-                    result = converter.convert(tmp_path)
+                    result = converter.convert(tmp_path, pattern_type=pattern_type)
 
                 if "error" in result:
                     st.error(result["error"])
@@ -74,7 +82,6 @@ with col1:
                 "Algoritmo:",
                 ["📏 Líneas Rectas (Hough)",
                  "⚡ Líneas Precisas (LSD - Sub-pixel)",
-                 "🚀 FastLineDetector (contrib)",
                  "🌿 Formas Orgánicas (Contornos)"],
                 label_visibility="collapsed"
             )
@@ -161,10 +168,6 @@ with col1:
                     p1 = st.slider("Longitud mín. de línea", 5, 100, 15, key="lsd_min")
                     p2 = 0
                     method_key = "lsd"
-                elif "FastLineDetector" in detect_method:
-                    p1 = st.slider("Longitud mín. de línea (FLD)", 5, 100, 20, key="fld_min")
-                    p2 = 0
-                    method_key = "fld"
                 else:
                     p1 = st.slider("Longitud mín. contorno", 5, 100, 20, key="cont_min")
                     p2 = st.slider("Suavizado de curvas", 0.001, 0.05, 0.005, format="%.3f",
@@ -218,7 +221,8 @@ with col1:
                 max_resolution=max_res,
                 tile_mm=float(tile_mm),
                 min_dash_mm=float(min_dash_mm),
-                min_gap_mm=float(min_gap_mm)
+                min_gap_mm=float(min_gap_mm),
+                pattern_type=pattern_type
             )
 
             if "error" in result:
@@ -303,7 +307,6 @@ st.markdown("""
 - **DXF**: explosión completa de entidades (INSERT, polilíneas, arcos, splines). Ángulos exactos, sin cuantizar.
 - **Imagen → Hough**: Detecta líneas rectas. Ideal para baldosas y geometría.
 - **Imagen → LSD**: Detector sub-pixel auto-tuning. El más preciso para líneas.
-- **Imagen → FLD**: FastLineDetector (opencv-contrib), rápido y robusto con fusión de segmentos.
 - **Imagen → Contornos**: Formas orgánicas (piedra, texturas).
 - **Pre-procesamiento**: CLAHE, Black-hat, Bilateral, Auto-Canny, Adaptive Threshold, Skeleton, Merge.
 - **Escala física**: define el tamaño real del tile en mm para cotas correctas en Revit.

@@ -63,6 +63,7 @@ def test_convert_image_hough():
     assert "*PAT" in j["pat_content"] or "PAT" in j["pat_content"].upper()
     assert j["preview"].startswith("data:image/png;base64,")
     assert j["debug"].startswith("data:image/png;base64,")
+    assert j["debug_base"].startswith("data:image/png;base64,")
     assert j["num_entries"] > 0
     assert j["segments"] > 0
     assert "⚠️" not in j["stats"]
@@ -117,6 +118,22 @@ def test_convert_dxf_empty_file():
     assert r.status_code == 400
 
 
+def test_export_dxf():
+    data = make_synthetic_image()
+    r = client.post(
+        "/api/export/dxf",
+        files={"file": ("grid.png", data, "image/png")},
+        data={"method": "hough"},
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["filename"] == "HATCH.it.dxf"
+    assert j["segments"] > 0
+    import base64
+    dxf = base64.b64decode(j["dxf_base64"]).decode("utf-8")
+    assert "LINE" in dxf
+
+
 def test_preview_endpoint():
     pat = ";TEST\n*T,test\n0, 0,0, 0,10, 10,-10\n"
     r = client.post("/api/preview", json={"pat_content": pat, "tile_count": 3, "preview_size": 300, "manual_scale": 1.0})
@@ -132,3 +149,70 @@ def test_preview_invalid_pat():
 def test_clean_text_strips_emojis():
     assert clean_text("a ✅ b ⚠️ c") == "a b c"
     assert clean_text("sin emojis") == "sin emojis"
+
+
+def test_convert_segments():
+    r = client.post(
+        "/api/convert/segments",
+        json={
+            "segments": [[0, 0, 100, 0], [0, 50, 100, 50], [50, 0, 50, 100]],
+            "tile_mm": 100.0,
+            "pattern_name": "DrawTest",
+            "pattern_type": "MODEL",
+        },
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["pat_content"].startswith("*DrawTest")
+    assert ";%TYPE=MODEL" in j["pat_content"]
+    assert j["num_entries"] == 3
+    assert j["preview"].startswith("data:image/png;base64,")
+
+
+def test_convert_segments_empty():
+    r = client.post("/api/convert/segments", json={"segments": []})
+    assert r.status_code == 400
+
+
+def test_convert_segments_drafting():
+    r = client.post(
+        "/api/convert/segments",
+        json={"segments": [[0, 0, 10, 10]], "tile_mm": 50.0, "pattern_type": "DRAFTING"},
+    )
+    assert r.status_code == 200
+    assert ";%TYPE=DRAFTING" in r.json()["pat_content"]
+
+
+def test_export_dxf_from_segments():
+    r = client.post(
+        "/api/export/dxf/segments",
+        json={"segments": [[0, 0, 100, 0], [100, 0, 100, 100]], "filename": "test.dxf"},
+    )
+    assert r.status_code == 200
+    j = r.json()
+    assert j["filename"] == "test.dxf"
+    assert j["segments"] == 2
+    import base64
+    dxf_text = base64.b64decode(j["dxf_base64"]).decode("utf-8")
+    assert "LINE" in dxf_text
+
+
+def test_segments_data_in_convert_results():
+    data = make_synthetic_image()
+    r = client.post(
+        "/api/convert/image",
+        files={"file": ("grid.png", data, "image/png")},
+        data={"method": "hough"},
+    )
+    assert r.status_code == 200
+    assert "segments_data" in r.json()
+    assert len(r.json()["segments_data"]) > 0
+
+    dxf_data = make_synthetic_dxf()
+    r_dxf = client.post(
+        "/api/convert/dxf",
+        files={"file": ("rect.dxf", dxf_data, "application/dxf")},
+    )
+    assert r_dxf.status_code == 200
+    assert "segments_data" in r_dxf.json()
+    assert len(r_dxf.json()["segments_data"]) > 0
