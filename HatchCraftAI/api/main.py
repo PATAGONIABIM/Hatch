@@ -216,16 +216,24 @@ def convert_dxf(
     file: UploadFile = File(...),
     pattern_name: str = Form("DXF_Pattern"),
     pattern_type: str = Form("MODEL"),
+    unit: str = Form("in"),
 ):
-    """Convierte un DXF a PAT (explosión completa de entidades)."""
+    """Convierte un DXF a PAT (explosión completa de entidades).
+
+    unit: unidad de las coordenadas del DXF de origen ('cm' | 'in').
+    Con 'cm' se escala a pulgadas (1/2.54) para que Revit mida bien.
+    """
     pattern_type = _validate_pattern_type(pattern_type)
+    unit = unit if unit in ("cm", "in") else "in"
     data = file.file.read()
     if not data:
         raise HTTPException(400, detail={"error": "Archivo vacío"})
     if len(data) > MAX_UPLOAD_BYTES:
         raise HTTPException(400, detail={"error": "El archivo supera 12 MB"})
 
-    key = hashlib.md5(data + pattern_name.encode() + pattern_type.encode()).hexdigest()
+    key = hashlib.md5(
+        data + pattern_name.encode() + pattern_type.encode() + unit.encode()
+    ).hexdigest()
     cached = dxf_cache.get(key)
     if cached is not None:
         return _build_dxf_result(cached, 0)
@@ -236,7 +244,9 @@ def convert_dxf(
             tmp.write(data)
             tmp_path = tmp.name
         t0 = time.perf_counter()
-        result = DXFtoPatConverter().convert(tmp_path, pattern_name=pattern_name, pattern_type=pattern_type)
+        result = DXFtoPatConverter().convert(
+            tmp_path, pattern_name=pattern_name, pattern_type=pattern_type, unit=unit
+        )
         elapsed_ms = int((time.perf_counter() - t0) * 1000)
     finally:
         if tmp_path:
@@ -335,6 +345,7 @@ class SegmentsRequest(BaseModel):
     tile_mm: float = Field(100.0, gt=0)
     pattern_name: str = "Draw_Pattern"
     pattern_type: str = "MODEL"
+    unit: str = "mm"
 
 
 @app.post("/api/convert/segments")
@@ -360,6 +371,7 @@ def convert_segments(req: SegmentsRequest):
         segs = [(x1 - min_x, y1 - min_y, x2 - min_x, y2 - min_y) for x1, y1, x2, y2 in segs]
 
     tile = float(req.tile_mm)
+    unit = req.unit if req.unit in ("mm", "cm", "in") else "mm"
     t0 = time.perf_counter()
     segs, removed = dedup_duplicate_segments(segs, tile)
     try:
@@ -374,7 +386,7 @@ def convert_segments(req: SegmentsRequest):
 
     pat_content = compiled["pat_content"]
     img = render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0)
-    stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile} mm"
+    stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile:.2f} {unit}"
     if removed:
         stats += f" | duplicados eliminados: {removed}"
     return {

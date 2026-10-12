@@ -619,6 +619,17 @@ body {
 
 .controls-group {
     border-bottom: 1px solid var(--border);
+    position: relative;
+}
+
+.group-unit {
+    position: absolute;
+    top: 18px;
+    right: 44px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+    z-index: 2;
 }
 
 .group-header {

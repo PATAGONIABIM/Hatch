@@ -188,7 +188,7 @@ with col1:
                     help="Tamaño físico que tendrá el tile completo al importarlo en Revit"
                 )
             with col_esc2:
-                max_res = st.slider("Resolución de trabajo (px)", 200, 800, 600, 50,
+                max_res = st.slider("Resolución de trabajo (px)", 200, 1000, 600, 50,
                                     key="max_res",
                                     help="Menor = más rápido. Mayor = más detalle.")
 

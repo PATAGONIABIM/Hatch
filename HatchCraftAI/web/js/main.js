@@ -49,6 +49,11 @@
             'ctl.maxres': 'RESOLUCIÓN DE TRABAJO (PX)',
             'ctl.offx': 'OFFSET X',
             'ctl.offy': 'OFFSET Y',
+            'ctl.tilemm': 'ESCALA REAL DEL TILE (MM)',
+            'unit.cm': 'CM',
+            'unit.in': 'PULGADAS',
+            'unit.title': 'Unidades de exportación del patrón',
+            'cad.rotate': 'Rotar 90° horario',
             'method.hough': 'Líneas rectas — Hough',
             'method.lsd': 'Líneas precisas — LSD',
             'method.contour': 'Formas orgánicas — Contornos',
@@ -129,6 +134,10 @@
             'ctl.maxres': 'WORKING RESOLUTION (PX)',
             'ctl.offx': 'OFFSET X',
             'ctl.offy': 'OFFSET Y',
+            'unit.cm': 'CM',
+            'unit.in': 'INCHES',
+            'unit.title': 'Pattern export measurement units',
+            'cad.rotate': 'Rotate 90° clockwise',
             'method.hough': 'Straight lines — Hough',
             'method.lsd': 'Precise lines — LSD',
             'method.contour': 'Organic shapes — Contours',
@@ -399,12 +408,25 @@
     const dropSub = $('.dropzone-sub');
     const drawPanel = $('#draw-panel');
 
+    function syncControlsMode() {
+        // En modo DXF solo aplica el selector de unidades (grupo 03);
+        // los grupos de imagen se ocultan. En modo DIBUJAR no aplica nada.
+        const isDraw = mode === 'draw';
+        const isDxf = mode === 'dxf';
+        controls.classList.toggle('hidden', isDraw);
+        $$('#controls [data-image-only]').forEach((el) => {
+            el.classList.toggle('hidden', isDxf);
+        });
+        const unitSel = $('.group-unit');
+        if (unitSel) unitSel.classList.toggle('hidden', !isDxf);
+    }
+
     $$('.mode-btn').forEach((btn) => {
         btn.addEventListener('click', () => {
             mode = btn.dataset.mode;
             const isDraw = mode === 'draw';
             $$('.mode-btn').forEach((b) => b.classList.toggle('is-active', b === btn));
-            controls.classList.toggle('hidden', mode !== 'image');
+            syncControlsMode();
             if (!isDraw) {
                 dropSub.textContent = mode === 'dxf'
                     ? (lang === 'es' ? 'Archivo DXF — máx. 12 MB' : 'DXF file — max 12 MB')
@@ -466,7 +488,7 @@
 
         // Auto-reconocimiento del modo (DXF o Imagen)
         mode = isDxf ? 'dxf' : 'image';
-        controls.classList.toggle('hidden', mode !== 'image');
+        syncControlsMode();
 
         currentFile = file;
         $('.dropzone-file').classList.remove('hidden');
@@ -497,7 +519,7 @@
         currentFile = null;
         fileInput.value = '';
         mode = 'image';
-        controls.classList.remove('hidden');
+        syncControlsMode();
         dz.classList.remove('has-file');
         $('.dropzone-file').classList.add('hidden');
         hideResults();
@@ -789,9 +811,23 @@
         scheduleConvert(0);
     });
 
+    // Unidad de exportación (cm / pulgadas) — selector en "ESCALA Y GEOMETRÍA"
+    function getExportUnit() {
+        const checked = $('input[name="exportunit"]:checked');
+        return checked ? checked.value : 'cm';
+    }
+
+    $$('input[name="exportunit"]').forEach((radio) => {
+        radio.addEventListener('change', (e) => {
+            e.stopPropagation();
+            if (currentFile && mode === 'dxf') {
+                convert({ isLive: true, shouldScroll: false });
+            }
+        });
+    });
+
     // Tipo de patrón 00 (MODEL/DRAFTING)
-    const patTypeHidden = $('#ctl-patterntype');
-    $$('input[name="patterntype"]').forEach((radio) => {
+    const patTypeHidden = $('#ctl-patterntype');    $$('input[name="patterntype"]').forEach((radio) => {
         radio.addEventListener('change', () => {
             if (patTypeHidden) {
                 patTypeHidden.value = radio.value;
@@ -861,6 +897,7 @@
         if (mode === 'dxf') {
             fd.append('pattern_name', 'DXF_Pattern');
             fd.append('pattern_type', $('#ctl-patterntype').value);
+            fd.append('unit', getExportUnit());
         } else {
             const num = (id) => parseFloat($('#' + id).value);
             const bool = (id) => $('#' + id).checked;
@@ -1011,6 +1048,9 @@
     let cadTileH = 100;            // tile height in mm
     let cadDrawStart = null;       // { x, y } in mm
     let cadHoverPoint = null;      // { x, y } in mm
+    let cadRotation = 0;           // giros de 90° horarios aplicados (0-3)
+    let cadInitialTileW = 100;     // dimensiones originales (para reset)
+    let cadInitialTileH = 100;
     let cadDebounceTimer = null;
     let cadActiveAbort = null;
     let cadReqId = 0;
@@ -1174,13 +1214,47 @@
     }
 
     function cadPushUndo() {
-        cadUndoStack.push(cadSegments.map((s) => [...s]));
+        cadUndoStack.push({
+            segments: cadSegments.map((s) => [...s]),
+            tileW: cadTileW,
+            tileH: cadTileH,
+            rotation: cadRotation,
+        });
         if (cadUndoStack.length > 30) cadUndoStack.shift();
+    }
+
+    function setCadRotation(rot) {
+        cadRotation = ((rot % 4) + 4) % 4;
+        const dbg = $('#debug-img');
+        if (dbg) {
+            dbg.style.transform = cadRotation ? `rotate(${cadRotation * 90}deg)` : '';
+        }
+    }
+
+    function cadRotate90() {
+        if (!cadSegments.length) return;
+        cadPushUndo();
+        // 90° horario (Y-up): (x, y) → (y, W − x)
+        const w = cadTileW;
+        cadSegments = cadSegments.map((s) => [s[1], w - s[0], s[3], w - s[2]]);
+        const t = cadTileW;
+        cadTileW = cadTileH;
+        cadTileH = t;
+        setCadRotation(cadRotation + 1);
+        cadBoundaryIdx = -1;
+        cadHoverIdx = -1;
+        cadDrawStart = null;
+        renderCadCanvas();
+        scheduleCadSync();
     }
 
     function cadUndo() {
         if (!cadUndoStack.length) return;
-        cadSegments = cadUndoStack.pop();
+        const st = cadUndoStack.pop();
+        cadSegments = st.segments;
+        cadTileW = st.tileW;
+        cadTileH = st.tileH;
+        setCadRotation(st.rotation);
         cadBoundaryIdx = -1;
         cadHoverIdx = -1;
         cadDrawStart = null;
@@ -1192,6 +1266,9 @@
         if (!cadInitialSegments.length) return;
         cadPushUndo();
         cadSegments = cadInitialSegments.map((s) => [...s]);
+        cadTileW = cadInitialTileW;
+        cadTileH = cadInitialTileH;
+        setCadRotation(0);
         cadBoundaryIdx = -1;
         cadHoverIdx = -1;
         cadDrawStart = null;
@@ -1376,6 +1453,7 @@
             const payload = {
                 segments: cadSegments,
                 tile_mm: Math.max(cadTileW, cadTileH),
+                unit: mode === 'dxf' ? 'in' : 'mm',
                 pattern_name: 'CAD_Pattern',
                 pattern_type: $('#ctl-patterntype').value,
             };
@@ -1497,6 +1575,9 @@
     const cadResetBtn = $('#cad-reset');
     if (cadResetBtn) cadResetBtn.addEventListener('click', cadReset);
 
+    const cadRotateBtn = $('#cad-rotate');
+    if (cadRotateBtn) cadRotateBtn.addEventListener('click', cadRotate90);
+
     window.addEventListener('resize', () => {
         if (cadSegments.length) {
             sizeCadCanvas();
@@ -1523,6 +1604,7 @@
         $('#debug-img').src = (json.segments_data && json.segments_data.length && json.debug_base)
             ? json.debug_base
             : (json.debug || '');
+        setCadRotation(0);
 
         $('#pat-code').value = json.pat_content;
 
@@ -1536,6 +1618,8 @@
             cadDrawStart = null;
             cadTileW = json.tile_w || 100;
             cadTileH = json.tile_h || 100;
+            cadInitialTileW = cadTileW;
+            cadInitialTileH = cadTileH;
             setTimeout(() => {
                 sizeCadCanvas();
                 renderCadCanvas();

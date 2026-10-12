@@ -297,7 +297,7 @@
                 </div>
 
                 <div id="controls" class="controls">
-                    <div class="controls-group">
+                    <div class="controls-group" data-image-only>
                         <button class="group-header" type="button" aria-expanded="false" data-cursor>
                             <span class="group-num">01</span>
                             <span class="group-title" data-i18n="ctl.detection">DETECCIÓN</span>
@@ -342,7 +342,7 @@
                         </div>
                     </div>
 
-                    <div class="controls-group">
+                    <div class="controls-group" data-image-only>
                         <button class="group-header" type="button" aria-expanded="false" data-cursor>
                             <span class="group-num">02</span>
                             <span class="group-title" data-i18n="ctl.preprocess">PRE-PROCESAMIENTO</span>
@@ -460,7 +460,7 @@
                             </svg>
                         </button>
                         <div class="group-body">
-                            <div class="field">
+                            <div class="field" data-image-only>
                                 <label class="field-label" for="ctl-tilemm" data-i18n="ctl.tilemm">ESCALA REAL DEL TILE
                                     (MM)</label>
                                 <div class="slider-row">
@@ -468,28 +468,41 @@
                                     <output class="slider-val" for="ctl-tilemm">100</output>
                                 </div>
                             </div>
-                            <div class="field">
+                            <div class="field" data-image-only>
                                 <label class="field-label" for="ctl-maxres" data-i18n="ctl.maxres">RESOLUCIÓN DE TRABAJO
                                     (PX)</label>
                                 <div class="slider-row">
-                                    <input type="range" id="ctl-maxres" min="200" max="800" step="50" value="400">
+                                    <input type="range" id="ctl-maxres" min="200" max="1000" step="50" value="400">
                                     <output class="slider-val" for="ctl-maxres">400</output>
                                 </div>
                             </div>
-                            <div class="field">
+                            <div class="field" data-image-only>
                                 <label class="field-label" for="ctl-offx" data-i18n="ctl.offx">OFFSET X</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-offx" min="0" max="100" step="1" value="0">
                                     <output class="slider-val" for="ctl-offx">0.00</output>
                                 </div>
                             </div>
-                            <div class="field">
+                            <div class="field" data-image-only>
                                 <label class="field-label" for="ctl-offy" data-i18n="ctl.offy">OFFSET Y</label>
                                 <div class="slider-row">
                                     <input type="range" id="ctl-offy" min="0" max="100" step="1" value="0">
                                     <output class="slider-val" for="ctl-offy">0.00</output>
                                 </div>
                             </div>
+                        </div>
+                        <div class="group-unit" title="Unidades de exportación del patrón — DXF"
+                            data-cursor>
+                            <label class="circular-check" data-cursor>
+                                <input type="radio" name="exportunit" value="cm" checked>
+                                <span class="check-circle"></span>
+                                <span class="check-label" data-i18n="unit.cm">CM</span>
+                            </label>
+                            <label class="circular-check" data-cursor>
+                                <input type="radio" name="exportunit" value="in">
+                                <span class="check-circle"></span>
+                                <span class="check-label" data-i18n="unit.in">PULGADAS</span>
+                            </label>
                         </div>
                     </div>
                 </div>
@@ -514,6 +527,10 @@
                                 <span class="result-title" data-i18n="res.detected">LÍNEAS DETECTADAS</span>
                                 <div class="cad-toolbar" id="cad-toolbar">
                                     <div class="cad-tools">
+                                        <button type="button" class="cad-btn" id="cad-rotate"
+                                            title="Rotar 90° horario" data-cursor>
+                                            <span>RO</span>
+                                        </button>
                                         <button type="button" class="cad-btn is-active" id="cad-tool-trim"
                                             data-tool="trim" title="Trim / Extend" data-cursor>
                                             <span>EX/TR</span>

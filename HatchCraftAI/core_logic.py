@@ -30,8 +30,9 @@ def render_dxf_debug(lines_data, min_x, min_y, tile_w, tile_h, preview_size=500)
     if not lines_data or tile_size == 0:
         return img
 
-    scale = preview_size / tile_size * 0.9
-    offset = preview_size * 0.05
+    # El tile debe tocar los bordes del canvas (sin margen perceptible).
+    offset = 1
+    scale = (preview_size - 2 * offset) / tile_size
     cx = offset + (preview_size - 2 * offset) / 2 - tile_w * scale / 2
     cy = offset + (preview_size - 2 * offset) / 2 + tile_h * scale / 2
 
@@ -105,8 +106,14 @@ class DXFtoPatConverter:
                 pass
         return n
 
-    def convert(self, dxf_file_path, pattern_name="DXF_Pattern", pattern_type="MODEL"):
-        """Lee un archivo DXF y genera un PAT fiel (sin cuantización de ángulo)"""
+    def convert(self, dxf_file_path, pattern_name="DXF_Pattern", pattern_type="MODEL",
+                unit="in"):
+        """Lee un archivo DXF y genera un PAT fiel (sin cuantización de ángulo).
+
+        unit: unidad de las coordenadas de origen del DXF ('cm' | 'in').
+        Revit interpreta las coordenadas PAT en pulgadas, así que con 'cm'
+        se escala todo por 1/2.54 para que 100 unidades = 100 cm reales.
+        """
         try:
             doc = ezdxf.readfile(dxf_file_path)
             msp = doc.modelspace()
@@ -143,6 +150,16 @@ class DXFtoPatConverter:
             if tile_w <= 0 or tile_h <= 0:
                 return {"error": "El dibujo tiene tamaño cero"}
 
+            # Unidad del DXF de origen → pulgadas (Revit lee PAT en pulgadas).
+            unit = "cm" if str(unit).lower() == "cm" else "in"
+            src_w, src_h = tile_w, tile_h
+            factor = (1.0 / 2.54) if unit == "cm" else 1.0
+            if factor != 1.0:
+                norm = [(x1 * factor, y1 * factor, x2 * factor, y2 * factor)
+                        for x1, y1, x2, y2 in norm]
+                tile_w *= factor
+                tile_h *= factor
+
             # Emisión "una entrada por línea" (formato que Revit acepta),
             # con ángulos cuantizados a 15° y tile cuadrado = max(tile_w, tile_h).
             tile_size = max(tile_w, tile_h)
@@ -168,10 +185,15 @@ class DXFtoPatConverter:
                     f"⚠️ {compiled['num_entries']} entradas PAT: Revit puede ir lento (>400 recomendado)"
                 )
             total_ignored = sum(ignored.values())
+            if unit == "cm":
+                tile_desc = (f"tile={src_w:.2f}×{src_h:.2f} cm "
+                             f"= {tile_w:.2f}×{tile_h:.2f} in")
+            else:
+                tile_desc = f"tile={src_w:.2f}×{src_h:.2f} in"
             stats = (
                 f"✅ DXF: {len(segments)} segmentos "
                 f"({len(curves)} curvas → {num_curve_segs} tramos, tol={curve_tol:.4f}) → "
-                f"{compiled['num_entries']} entradas PAT | tile={tile_w:.2f}×{tile_h:.2f}"
+                f"{compiled['num_entries']} entradas PAT | {tile_desc}"
             )
             if ignored:
                 tipos = ", ".join(f"{k}×{v}" for k, v in sorted(ignored.items()))
