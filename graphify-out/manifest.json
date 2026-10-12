@@ -1,0 +1,152 @@
+{
+  ".devcontainer/devcontainer.json": {
+    "mtime": 1774596591.3709996,
+    "seen": 1791834262.7254555,
+    "ast_hash": "1a36a41373c7ce364d89a750824a3b3c",
+    "semantic_hash": "1a36a41373c7ce364d89a750824a3b3c"
+  },
+  "HatchCraftAI/api/__init__.py": {
+    "mtime": 1787426369.0327036,
+    "seen": 1791834262.7254555,
+    "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
+    "semantic_hash": "d41d8cd98f00b204e9800998ecf8427e"
+  },
+  "HatchCraftAI/api/main.py": {
+    "mtime": 1791500026.6203694,
+    "seen": 1791834262.7254555,
+    "ast_hash": "e2a15c1c3f6450517b04ab8a69f006d4",
+    "semantic_hash": "e2a15c1c3f6450517b04ab8a69f006d4"
+  },
+  "HatchCraftAI/app.py": {
+    "mtime": 1791498708.4001753,
+    "seen": 1791834262.7254555,
+    "ast_hash": "e911ec9f674dbf334ad600d9f3d3e5f7",
+    "semantic_hash": "e911ec9f674dbf334ad600d9f3d3e5f7"
+  },
+  "HatchCraftAI/core_logic.py": {
+    "mtime": 1791498521.900648,
+    "seen": 1791834262.7254555,
+    "ast_hash": "595663bb8a1f07e3dbd09471cd36c306",
+    "semantic_hash": "595663bb8a1f07e3dbd09471cd36c306"
+  },
+  "HatchCraftAI/dxf_exporter.py": {
+    "mtime": 1789069887.6501336,
+    "seen": 1791834262.7254555,
+    "ast_hash": "b27b3d90be1bf7b11ed54177a57ef3f8",
+    "semantic_hash": "b27b3d90be1bf7b11ed54177a57ef3f8"
+  },
+  "HatchCraftAI/geometry.py": {
+    "mtime": 1789068435.668435,
+    "seen": 1791834262.7254555,
+    "ast_hash": "d1559031574ad2cdc9686aaf3a443bf6",
+    "semantic_hash": "d1559031574ad2cdc9686aaf3a443bf6"
+  },
+  "HatchCraftAI/metrics.py": {
+    "mtime": 1789069281.5162454,
+    "seen": 1791834262.7254555,
+    "ast_hash": "5da4af61521593c95bfbe3777e7c33b7",
+    "semantic_hash": "5da4af61521593c95bfbe3777e7c33b7"
+  },
+  "HatchCraftAI/pat_compiler.py": {
+    "mtime": 1789170923.0834618,
+    "seen": 1791834262.7254555,
+    "ast_hash": "216bb89898eeea73072896b61586dc73",
+    "semantic_hash": "216bb89898eeea73072896b61586dc73"
+  },
+  "HatchCraftAI/pat_sim.py": {
+    "mtime": 1789154145.2096622,
+    "seen": 1791834262.7254555,
+    "ast_hash": "d2d0c0523462e7a83ccf71eab303fae6",
+    "semantic_hash": "d2d0c0523462e7a83ccf71eab303fae6"
+  },
+  "HatchCraftAI/segment_cleaner.py": {
+    "mtime": 1789068767.6941352,
+    "seen": 1791834262.7254555,
+    "ast_hash": "02928ef23aef754c6a4b9f2af2c73173",
+    "semantic_hash": "02928ef23aef754c6a4b9f2af2c73173"
+  },
+  "HatchCraftAI/tests/conftest.py": {
+    "mtime": 1787421361.2890925,
+    "seen": 1791834262.7254555,
+    "ast_hash": "197929de713e643e8676095f94d3efe7",
+    "semantic_hash": "197929de713e643e8676095f94d3efe7"
+  },
+  "HatchCraftAI/tests/test_api.py": {
+    "mtime": 1789164888.4817367,
+    "seen": 1791834262.7254555,
+    "ast_hash": "826e94b222ec079d28bfff410ce44bb4",
+    "semantic_hash": "826e94b222ec079d28bfff410ce44bb4"
+  },
+  "HatchCraftAI/tests/test_compiler.py": {
+    "mtime": 1787429836.7141387,
+    "seen": 1791834262.7254555,
+    "ast_hash": "b1bea814f4c0511fbb81fa9d1853d6fc",
+    "semantic_hash": "b1bea814f4c0511fbb81fa9d1853d6fc"
+  },
+  "HatchCraftAI/tests/test_dxf_exporter_arcs.py": {
+    "mtime": 1789069976.7852876,
+    "seen": 1791834262.7254555,
+    "ast_hash": "b0866520bc83d2c46d4e52651c763e96",
+    "semantic_hash": "b0866520bc83d2c46d4e52651c763e96"
+  },
+  "HatchCraftAI/tests/test_geometry.py": {
+    "mtime": 1789068443.5727482,
+    "seen": 1791834262.7254555,
+    "ast_hash": "2b254d017466682bf78633b905dcad86",
+    "semantic_hash": "2b254d017466682bf78633b905dcad86"
+  },
+  "HatchCraftAI/tests/test_golden_dxf.py": {
+    "mtime": 1789170934.740373,
+    "seen": 1791834262.7254555,
+    "ast_hash": "62ec0aeb98db52a27a06ce5db5a5a5ec",
+    "semantic_hash": "62ec0aeb98db52a27a06ce5db5a5a5ec"
+  },
+  "HatchCraftAI/tests/test_golden_images.py": {
+    "mtime": 1789062065.2854376,
+    "seen": 1791834262.7254555,
+    "ast_hash": "867bc2243bf1688a80f4db0019985e62",
+    "semantic_hash": "867bc2243bf1688a80f4db0019985e62"
+  },
+  "HatchCraftAI/tests/test_metrics.py": {
+    "mtime": 1789066997.669664,
+    "seen": 1791834262.7254555,
+    "ast_hash": "0e4393a57d72194dfd49b7e781906aae",
+    "semantic_hash": "0e4393a57d72194dfd49b7e781906aae"
+  },
+  "HatchCraftAI/tests/test_perline_pat.py": {
+    "mtime": 1789154189.8233826,
+    "seen": 1791834262.7254555,
+    "ast_hash": "64233ed6e6d1ffb29b40366246fa4251",
+    "semantic_hash": "64233ed6e6d1ffb29b40366246fa4251"
+  },
+  "HatchCraftAI/tests/test_samples.py": {
+    "mtime": 1787421407.8419456,
+    "seen": 1791834262.7254555,
+    "ast_hash": "739bed341c76640d638a5f16eb21f873",
+    "semantic_hash": "739bed341c76640d638a5f16eb21f873"
+  },
+  "HatchCraftAI/tests/test_segment_cleaner.py": {
+    "mtime": 1789068938.5287976,
+    "seen": 1791834262.7254555,
+    "ast_hash": "46a77cd3157054836c840c8b7830dff4",
+    "semantic_hash": "46a77cd3157054836c840c8b7830dff4"
+  },
+  "HatchCraftAI/tests/test_units.py": {
+    "mtime": 1787429711.0119147,
+    "seen": 1791834262.7254555,
+    "ast_hash": "b1a9852fafa0bd4eca2bd06cf699bb10",
+    "semantic_hash": "b1a9852fafa0bd4eca2bd06cf699bb10"
+  },
+  "HatchCraftAI/web/js/lenis.min.js": {
+    "mtime": 1787439657.7584176,
+    "seen": 1791834262.7254555,
+    "ast_hash": "63af1e6053697fc8e74e466d4e8af064",
+    "semantic_hash": "63af1e6053697fc8e74e466d4e8af064"
+  },
+  "HatchCraftAI/web/js/main.js": {
+    "mtime": 1791500182.952467,
+    "seen": 1791834262.7254555,
+    "ast_hash": "e63b86d691a91e51a651ad9150484299",
+    "semantic_hash": "e63b86d691a91e51a651ad9150484299"
+  }
+}
