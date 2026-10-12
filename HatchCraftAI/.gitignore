@@ -14,3 +14,6 @@ venv/
 *.bak
 *.jpg
 *.png
+
+# Documentación interna de deploy en el servidor Oracle (no subirlo)
+deploy.md
