@@ -38,6 +38,52 @@ def simplify_polyline_adaptive(points, tol):
     return out
 
 
+def fit_line_tls(points):
+    """Ajuste de recta por Total Least Squares (PCA).
+
+    Minimiza la suma de distancias perpendiculares de todos los puntos a la
+    recta (a diferencia deOLS sobre y). Devuelve
+    {"point": (px, py), "dir": (ux, uy) unitario, "rms": float} o None si los
+    puntos son degenerados (<2 puntos o todos idénticos).
+    """
+    pts = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+    if pts.shape[0] < 2:
+        return None
+    centroid = pts.mean(axis=0)
+    d = pts - centroid
+    cov = d.T @ d
+    if cov[0, 0] + cov[1, 1] <= 1e-12:
+        return None
+    evals, evecs = np.linalg.eigh(cov)
+    if evals[-1] <= 1e-12:
+        return None
+    direction = evecs[:, -1]
+    if direction[0] < 0 or (direction[0] == 0 and direction[1] < 0):
+        direction = -direction
+    proj = d @ direction
+    resid = d - np.outer(proj, direction)
+    rms = float(np.sqrt(np.mean(np.sum(resid * resid, axis=1))))
+    return {
+        "point": (float(centroid[0]), float(centroid[1])),
+        "dir": (float(direction[0]), float(direction[1])),
+        "rms": rms,
+    }
+
+
+def max_perp_deviation(points, fit):
+    """Desviación perpendicular máxima de `points` a la recta TLS `fit`."""
+    if fit is None:
+        return float("inf")
+    pts = np.asarray(points, dtype=np.float64).reshape(-1, 2)
+    if pts.shape[0] == 0:
+        return 0.0
+    p0 = np.asarray(fit["point"], dtype=np.float64)
+    d = np.asarray(fit["dir"], dtype=np.float64)
+    rel = pts - p0
+    perp = rel - np.outer(rel @ d, d)
+    return float(np.max(np.linalg.norm(perp, axis=1)))
+
+
 def fit_circle_taubin(points):
     """Ajuste algebraico de círculo (Kasa). Devuelve (cx, cy, r, rms_residual).
 

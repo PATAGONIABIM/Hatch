@@ -449,17 +449,23 @@ class ImageToPatConverter:
             start_y = (h_orig - side) // 2
             img = img[start_y:start_y + side, start_x:start_x + side]
 
-            upscaled = False
-            if side < 200:
-                img = cv2.resize(img, (side * 2, side * 2),
-                                 interpolation=cv2.INTER_CUBIC)
-                side *= 2
-                upscaled = True
+            # "precision" gestiona su propia resolución de trabajo en
+            # vectorize.pipeline (escala sub-píxel); los métodos legacy
+            # conservan su redimensionado histórico (baselines de oro).
+            precision_mode = (method == "precision")
 
-            if side > max_resolution:
-                img = cv2.resize(img, (max_resolution, max_resolution),
-                                 interpolation=cv2.INTER_AREA)
-                side = max_resolution
+            upscaled = False
+            if not precision_mode:
+                if side < 200:
+                    img = cv2.resize(img, (side * 2, side * 2),
+                                     interpolation=cv2.INTER_CUBIC)
+                    side *= 2
+                    upscaled = True
+
+                if side > max_resolution:
+                    img = cv2.resize(img, (max_resolution, max_resolution),
+                                     interpolation=cv2.INTER_AREA)
+                    side = max_resolution
 
             if offset_x != 0.0 or offset_y != 0.0:
                 shift_x = int(round(offset_x * side))
@@ -470,46 +476,66 @@ class ImageToPatConverter:
             timings['decode+resize'] = time.perf_counter() - t0
             t1 = time.perf_counter()
 
-            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-            blurred, edges = self._preprocess(
-                gray, use_clahe=use_clahe, clahe_clip=clahe_clip,
-                use_blackhat=use_blackhat, blackhat_ksize=blackhat_ksize,
-                filter_mode=filter_mode, blur_size=blur_size,
-                use_adaptive=use_adaptive, adaptive_block=adaptive_block,
-                adaptive_c=adaptive_c, use_auto_canny=use_auto_canny,
-                canny_low=canny_low, canny_high=canny_high,
-            )
-
-            timings['preprocess'] = time.perf_counter() - t1
-            t2 = time.perf_counter()
-
-            stroke_width = self._estimate_stroke_width(edges)
-            dedup_eff = dedup_threshold
-            if dedup_auto:
-                dedup_eff = min(40.0, max(2.0, dedup_k * stroke_width))
-
-            if use_skeleton:
-                try:
-                    from skimage.morphology import skeletonize
-                    skeleton_input = (edges > 0).astype(np.uint8)
-                    skeleton = skeletonize(skeleton_input).astype(np.uint8) * 255
-                    if cv2.countNonZero(skeleton) > 0:
-                        edges = skeleton
-                except ImportError:
-                    pass
-
-            timings['skeleton'] = time.perf_counter() - t2
-            t3 = time.perf_counter()
-
-            debug_img = np.ones((side, side, 3), dtype=np.uint8) * 255
-            edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
-            debug_edges = np.where(edges_color > 0,
-                                   np.array([220, 220, 220], dtype=np.uint8),
-                                   np.array([255, 255, 255], dtype=np.uint8))
-            debug_img = debug_edges.astype(np.uint8)
-            debug_base = debug_img.copy()
-
             raw_lines = []
+            if precision_mode:
+                from vectorize import pipeline as _precision
+                t2 = time.perf_counter()
+                prec = _precision.run(img)
+                timings['detection'] = time.perf_counter() - t2
+                t3 = time.perf_counter()
+                if "error" in prec:
+                    return {"error": prec["error"]}
+                side = prec["side_px"]
+                stroke_width = prec["stroke_width"]
+                dedup_eff = dedup_threshold
+                if dedup_auto:
+                    dedup_eff = min(40.0, max(2.0, dedup_k * stroke_width))
+                raw_lines = prec["segments_px"]
+                edges = prec["mask"]
+                gray = prec["gray"]
+                debug_base = prec["debug_base"]
+                debug_img = debug_base.copy()
+                upscaled = prec["scale"] > 1
+                precision_info = prec
+            else:
+                gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+                blurred, edges = self._preprocess(
+                    gray, use_clahe=use_clahe, clahe_clip=clahe_clip,
+                    use_blackhat=use_blackhat, blackhat_ksize=blackhat_ksize,
+                    filter_mode=filter_mode, blur_size=blur_size,
+                    use_adaptive=use_adaptive, adaptive_block=adaptive_block,
+                    adaptive_c=adaptive_c, use_auto_canny=use_auto_canny,
+                    canny_low=canny_low, canny_high=canny_high,
+                )
+
+                timings['preprocess'] = time.perf_counter() - t1
+                t2 = time.perf_counter()
+
+                stroke_width = self._estimate_stroke_width(edges)
+                dedup_eff = dedup_threshold
+                if dedup_auto:
+                    dedup_eff = min(40.0, max(2.0, dedup_k * stroke_width))
+
+                if use_skeleton:
+                    try:
+                        from skimage.morphology import skeletonize
+                        skeleton_input = (edges > 0).astype(np.uint8)
+                        skeleton = skeletonize(skeleton_input).astype(np.uint8) * 255
+                        if cv2.countNonZero(skeleton) > 0:
+                            edges = skeleton
+                    except ImportError:
+                        pass
+
+                timings['skeleton'] = time.perf_counter() - t2
+                t3 = time.perf_counter()
+
+                debug_img = np.ones((side, side, 3), dtype=np.uint8) * 255
+                edges_color = cv2.cvtColor(edges, cv2.COLOR_GRAY2BGR)
+                debug_edges = np.where(edges_color > 0,
+                                       np.array([220, 220, 220], dtype=np.uint8),
+                                       np.array([255, 255, 255], dtype=np.uint8))
+                debug_img = debug_edges.astype(np.uint8)
+                debug_base = debug_img.copy()
 
             if method == "hough":
                 kernel = np.ones((2, 2), np.uint8)
@@ -539,6 +565,8 @@ class ImageToPatConverter:
                             raw_lines.append((float(x1), float(y1),
                                               float(x2), float(y2)))
 
+            elif method == "precision":
+                pass  # raw_lines ya viene del pipeline vectorize.precision
             else:
                 kernel = np.ones((2, 2), np.uint8)
                 dilated = cv2.dilate(edges, kernel, iterations=1)
@@ -689,6 +717,11 @@ class ImageToPatConverter:
                 extras.append("AdaptiveThresh")
             if use_skeleton:
                 extras.append("Skeleton")
+            if precision_mode:
+                extras.append(
+                    f"Precision({precision_info['mode']}, "
+                    f"x{precision_info['scale']})"
+                )
             if merge_segments:
                 extras.append(f"Merge({len(raw_lines)}→{len(kept_lines)})")
             extra_str = f" + {', '.join(extras)}" if extras else ""
@@ -699,7 +732,13 @@ class ImageToPatConverter:
                     f"⚠️ {compiled['num_entries']} entradas PAT: Revit puede ir lento (>400 recomendado)"
                 )
             if upscaled:
-                warnings.append("Imagen pequeña ampliada ×2 antes del análisis")
+                if precision_mode:
+                    warnings.append(
+                        f"Imagen ampliada x{precision_info['scale']} "
+                        "para el análisis de precisión"
+                    )
+                else:
+                    warnings.append("Imagen pequeña ampliada ×2 antes del análisis")
 
             timing_str = " | ".join(f"{k}:{v:.2f}s" for k, v in timings.items())
             stats = (

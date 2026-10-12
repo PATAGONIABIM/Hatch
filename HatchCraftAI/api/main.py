@@ -87,7 +87,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-IMAGE_METHODS = ("hough", "lsd", "contour")
+IMAGE_METHODS = ("hough", "lsd", "contour", "precision")
 FILTER_MODES = ("gaussian", "bilateral", "none")
 PATTERN_TYPES = ("MODEL", "DRAFTING")
 
