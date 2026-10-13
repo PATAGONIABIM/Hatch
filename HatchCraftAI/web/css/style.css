@@ -1491,3 +1491,77 @@ select:focus {
     touch-action: none;
     z-index: 2;
 }
+
+
+/* ============ S6: Precision group, view strip, analysis strip ============ */
+
+.view-strip {
+    display: flex;
+    gap: 6px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+}
+
+.cad-view-btn {
+    flex: 0 0 auto;
+    padding: 4px 10px;
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+}
+
+.analysis-strip {
+    margin-top: 8px;
+    padding: 6px 12px;
+    border-radius: 6px;
+    background: rgba(255, 215, 0, 0.03);
+    border: 1px dashed rgba(255, 215, 0, 0.18);
+    font-family: var(--font-mono, monospace);
+    font-size: 0.72rem;
+    color: var(--text-dim);
+    letter-spacing: 0.02em;
+    line-height: 1.5;
+}
+
+.premode-row {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+
+.premode-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    padding: 5px 12px;
+    border: 1px solid rgba(255, 215, 0, 0.25);
+    border-radius: 999px;
+    font-size: 0.72rem;
+    letter-spacing: 0.05em;
+    color: var(--text-dim);
+    cursor: pointer;
+    transition: all 0.2s var(--ease);
+    user-select: none;
+}
+
+.premode-chip input {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.premode-chip:has(input:checked) {
+    border-color: var(--accent);
+    color: #000000;
+    background: var(--accent);
+    font-weight: 700;
+}
+
+.btn-auto {
+    width: 100%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.78rem;
+    padding: 10px 14px;
+}

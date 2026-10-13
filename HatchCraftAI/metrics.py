@@ -291,3 +291,89 @@ def chamfer_px(mask_a, mask_b):
     dt_b = cv2.distanceTransform(1 - b, cv2.DIST_L2, 3)
     dt_a = cv2.distanceTransform(1 - a, cv2.DIST_L2, 3)
     return float((dt_b[a > 0].sum() + dt_a[b > 0].sum()) / (na + nb))
+
+
+def junction_gaps(truth_segs, detected_segs, stroke_px=1.0,
+                  near_factor=2.0, match_angle_deg=5.0, min_cross_deg=10.0):
+    """Métricas S3: error de unión en intersecciones de rectas verdaderas.
+
+    Para cada par de verdades no paralelas con intersección P dentro del
+    extent de ambas (con margen `near`, para cubrir juntas T y L donde P
+    cae en el borde), recoge la distancia de cada EXTREMO detectado cercano
+    a P cuyo segmento esté alineado con alguna de las dos verdades.
+    Devuelve la lista de gaps (px). Lista vacía = sin juntas cercanas.
+    """
+    stroke_px = max(float(stroke_px), 1.0)
+    near = near_factor * stroke_px
+
+    truths = []
+    for s in truth_segs:
+        x1, y1, x2, y2 = map(float, s)
+        ang, ux, uy, ta, tb = _seg_line_info(x1, y1, x2, y2)
+        if tb - ta < 1e-9:
+            continue
+        truths.append((x1, y1, ux, uy, ta, tb, ang))
+
+    dets = []
+    for s in detected_segs:
+        x1, y1, x2, y2 = map(float, s)
+        ang = _angle_mod180(x1, y1, x2, y2)
+        dets.append(((x1, y1), (x2, y2), ang))
+
+    gaps = []
+    n = len(truths)
+    for i in range(n):
+        xi1, yi1, uxi, uyi, tai, tbi, angi = truths[i]
+        tpi = xi1 * uxi + yi1 * uyi
+        for j in range(i + 1, n):
+            xj1, yj1, uxj, uyj, taj, tbj, angj = truths[j]
+            if _ang_diff(angi, angj) < min_cross_deg:
+                continue
+            denom = uxi * uyj - uyi * uxj
+            if abs(denom) < 1e-12:
+                continue
+            rx, ry = xj1 - xi1, yj1 - yi1
+            ti = (rx * uyj - ry * uxj) / denom
+            tj = (rx * uyi - ry * uxi) / denom
+            pi_t = tpi + ti
+            pj_t = (xj1 * uxj + yj1 * uyj) + tj
+            if not (tai - near <= pi_t <= tbi + near
+                    and taj - near <= pj_t <= tbj + near):
+                continue
+            px_, py_ = xi1 + ti * uxi, yi1 + ti * uyi
+            for (ex, ey), (fx, fy), dang in dets:
+                if _ang_diff(dang, angi) > match_angle_deg \
+                        and _ang_diff(dang, angj) > match_angle_deg:
+                    continue
+                for qx, qy in ((ex, ey), (fx, fy)):
+                    d = math.hypot(qx - px_, qy - py_)
+                    if d <= near:
+                        gaps.append(d)
+    return gaps
+
+
+def f1_line_pixels(detected_mask, truth_mask, tol=2.0):
+    """F1 px (aceptación S5) entre dos máscaras de líneas/red de juntas.
+
+    Precision = fracción de px detectados a <= tol de la verdad;
+    Recall = fracción de px de verdad a <= tol de lo detectado
+    (distanceTransform simétrico). Devuelve F1 en [0, 1]; 0.0 si una
+    máscara está vacía.
+    """
+    import cv2
+    import numpy as np
+    det = np.asarray(detected_mask).astype(np.uint8)
+    tr = np.asarray(truth_mask).astype(np.uint8)
+    nd = int(det.sum())
+    nt = int(tr.sum())
+    if nd == 0 or nt == 0:
+        return 0.0
+    dt_tr = cv2.distanceTransform((1 - (tr > 0)).astype(np.uint8),
+                                   cv2.DIST_L2, cv2.DIST_MASK_5)
+    dt_det = cv2.distanceTransform((1 - (det > 0)).astype(np.uint8),
+                                   cv2.DIST_L2, cv2.DIST_MASK_5)
+    precision = float((dt_tr[det > 0] <= tol).mean())
+    recall = float((dt_det[tr > 0] <= tol).mean())
+    if precision + recall <= 0.0:
+        return 0.0
+    return 2.0 * precision * recall / (precision + recall)

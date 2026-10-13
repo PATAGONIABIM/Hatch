@@ -327,7 +327,8 @@ def get_pat_shift(ang, tile_size):
 
 
 def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
-                        quantize_angles=None, coord_nd=6, dash_nd=6):
+                        quantize_angles=None, coord_nd=6, dash_nd=6,
+                        tile_w=None, tile_h=None):
     """Emite un .pat en el formato "una entrada por línea" (el que Revit acepta).
 
     Reproduce fielmente la emisión pre-v2:
@@ -355,6 +356,28 @@ def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
         raise ValueError("tile_size debe ser > 0")
     tile_r = round(tile, coord_nd)
 
+    # F7 (periodicidad): tile rectangular. Si tile_w/tile_h difieren, el
+    # desplazamiento por entrada se calcula según la orientación para que
+    # la familia quede sobre el retículo (tile_w,0)/(0,tile_h) y la fase
+    # del dash sea continua en ambos ejes. Con tile cuadrado se conserva
+    # el comportamiento histórico (get_pat_shift).
+    tw = float(tile_w) if tile_w is not None else tile
+    th = float(tile_h) if tile_h is not None else tile
+    non_square = abs(tw - th) > 1e-9
+
+    def _shift_for(ang_deg):
+        if not non_square:
+            return get_pat_shift(ang_deg, tile)
+        ang_n = ang_deg % 180.0
+        dist_ortho = min(ang_n, abs(ang_n - 90.0), 180.0 - ang_n)
+        if dist_ortho >= 15.0:
+            return 0.7071067812 * tw, 0.7071067812 * th
+        if ang_n < 45.0 or ang_n > 135.0:
+            # horizontal-ish: período paralelo = tile_w, espaciado perp = tile_h
+            return tw, th
+        # vertical-ish: período paralelo = tile_h, espaciado perp = -tile_w
+        return th, -tw
+
     pat_lines = []
     entries = []
     skipped = 0
@@ -374,7 +397,7 @@ def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
             skipped += 1
             continue
         ang_q = round(ang, coord_nd) if quantize_angles is None else ang
-        shift_x, shift_y = get_pat_shift(ang, tile)
+        shift_x, shift_y = _shift_for(ang)
         shift_xr = round(shift_x, coord_nd)
         shift_yr = round(shift_y, coord_nd)
         gap = round(-(shift_x - length), dash_nd)
@@ -398,8 +421,8 @@ def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
     return {
         "pat_content": pat_content,
         "entries": entries,
-        "tile_w": tile,
-        "tile_h": tile,
+        "tile_w": tw,
+        "tile_h": th,
         "num_entries": len(entries),
         "skipped_degenerate": skipped,
     }

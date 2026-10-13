@@ -57,6 +57,21 @@
             'method.hough': 'Líneas rectas — Hough',
             'method.lsd': 'Líneas precisas — LSD',
             'method.contour': 'Formas orgánicas — Contornos',
+            'method.precision': 'Precisión — vectorial exacto',
+            'ctl.precision': 'PRECISIÓN',
+            'ctl.precmode': 'MODO',
+            'prec.auto': 'Auto',
+            'prec.centerline': 'Dibujo',
+            'prec.region': 'Foto',
+            'prec.strict': 'Estricto',
+            'ctl.sagitta': 'NIVEL DE DETALLE',
+            'ctl.corner': 'NITIDEZ DE ESQUINAS (ÁNGULO MÁX. °)',
+            'ctl.snap': 'RIGIDEZ GEOMÉTRICA (SNAP °)',
+            'btn.auto': 'AUTO — AJUSTAR AUTOMÁTICO',
+            'view.base': 'BASE',
+            'view.detect': 'RED',
+            'view.types': 'TIPOS',
+            'view.heat': 'HEATMAP',
             'filter.gaussian': 'Gaussiano',
             'filter.bilateral': 'Bilateral — preserva bordes',
             'filter.none': 'Ninguno',
@@ -141,6 +156,21 @@
             'method.hough': 'Straight lines — Hough',
             'method.lsd': 'Precise lines — LSD',
             'method.contour': 'Organic shapes — Contours',
+            'method.precision': 'Precision — exact vector',
+            'ctl.precision': 'PRECISION',
+            'ctl.precmode': 'MODE',
+            'prec.auto': 'Auto',
+            'prec.centerline': 'Drawing',
+            'prec.region': 'Photo',
+            'prec.strict': 'Strict',
+            'ctl.sagitta': 'DETAIL LEVEL',
+            'ctl.corner': 'CORNER SHARPNESS (MAX ANGLE °)',
+            'ctl.snap': 'GEOMETRIC RIGIDITY (SNAP °)',
+            'btn.auto': 'AUTO — TUNE AUTOMATICALLY',
+            'view.base': 'BASE',
+            'view.detect': 'NET',
+            'view.types': 'TYPES',
+            'view.heat': 'HEATMAP',
             'filter.gaussian': 'Gaussian',
             'filter.bilateral': 'Bilateral — preserves edges',
             'filter.none': 'None',
@@ -210,6 +240,16 @@
         }
         if (id === 'ctl-claheclip') {
             return parseFloat(value).toFixed(1);
+        }
+        if (id === 'ctl-sagitta') {
+            const SAG = { 1: '0.02mm', 2: '0.05mm', 3: '0.10mm', 4: '0.20mm', 5: '0.40mm' };
+            return SAG[Math.round(parseFloat(value))] || value;
+        }
+        if (id === 'ctl-snap') {
+            return parseFloat(value).toFixed(1) + '°';
+        }
+        if (id === 'ctl-corner') {
+            return Math.round(parseFloat(value)) + '°';
         }
         return value;
     }
@@ -448,6 +488,7 @@
     const dz = $('#dropzone');
     const fileInput = $('#file-input');
     let currentFile = null;
+    let pendingAutoTune = false;
 
     fileInput.accept = '.png,.jpg,.jpeg,.dxf';
 
@@ -564,7 +605,7 @@
         $$('[data-for-method]').forEach((el) => {
             el.classList.toggle('hidden', el.dataset.forMethod !== 'all' && el.dataset.forMethod !== m);
         });
-        const defaults = { hough: 20, lsd: 15, contour: 20 };
+        const defaults = { hough: 20, lsd: 15, contour: 20, precision: 20 };
         const p1 = $('#ctl-p1');
         p1.value = defaults[m];
         const outP1 = $('output[for="ctl-p1"]');
@@ -579,6 +620,25 @@
     }
     methodSel.addEventListener('change', syncMethod);
     syncMethod();
+
+    // Botón AUTO (precisión): pide auto-tuning en la próxima conversión
+    const autoBtn = $('#btn-auto');
+    if (autoBtn) {
+        autoBtn.addEventListener('click', () => {
+            if (!currentFile || mode !== 'image') {
+                showError(lang === 'es'
+                    ? 'Carga una imagen primero'
+                    : 'Load an image first');
+                return;
+            }
+            if (methodSel.value !== 'precision') {
+                methodSel.value = 'precision';
+                syncMethod();
+            }
+            pendingAutoTune = true;
+            convert({ isLive: true, shouldScroll: true });
+        });
+    }
 
     /* ============ Draw canvas (modo DIBUJAR) ============ */
     const drawCanvas = $('#draw-canvas');
@@ -932,6 +992,27 @@
             fd.append('min_dash_mm', '0.3');
             fd.append('min_gap_mm', '0.3');
             fd.append('pattern_type', $('#ctl-patterntype').value);
+            if (methodSel.value === 'precision') {
+                const SAG = { 1: 0.02, 2: 0.05, 3: 0.1, 4: 0.2, 5: 0.4 };
+                const sagVal = Math.round(num('ctl-sagitta'));
+                const sagitta = SAG[sagVal] || 0.1;
+                const precmode = ($('input[name="precmode"]:checked') || {}).value || 'auto';
+                let corner = num('ctl-corner');
+                let snap = num('ctl-snap');
+                let fmode = '';
+                if (precmode === 'centerline') fmode = 'centerline';
+                if (precmode === 'region') fmode = 'region';
+                if (precmode === 'strict') { fmode = 'centerline'; snap = 5; corner = 150; }
+                fd.append('curves', 'fit');
+                fd.append('corner_angle', String(corner));
+                fd.append('sagitta_mm', String(sagitta));
+                fd.append('budget', '400');
+                fd.append('snap_tol', String(snap));
+                fd.append('periodic', 'auto');
+                if (fmode) fd.append('force_mode', fmode);
+                fd.append('auto', pendingAutoTune ? 'true' : 'false');
+                pendingAutoTune = false;
+            }
         }
 
         const endpoint = mode === 'dxf' ? '/api/convert/dxf' : '/api/convert/image';
@@ -1587,6 +1668,66 @@
 
     /* ============ Results ============ */
     let lastPat = null;
+    const debugViews = { base: '', detect: '', types: '', heat: '' };
+    let activeDebugView = 'base';
+
+    function setDebugView(v) {
+        activeDebugView = v;
+        $$('.cad-view-btn').forEach((b) => {
+            b.classList.toggle('is-active', b.dataset.view === v);
+        });
+        const img = $('#debug-img');
+        const src = debugViews[v] || debugViews.base || debugViews.detect || '';
+        if (src) img.src = src;
+    }
+
+    function updateAnalysisStrip(analysis) {
+        const strip = $('#analysis-strip');
+        if (!strip) return;
+        const parts = [];
+        if (analysis && Array.isArray(analysis.dominant_deg) && analysis.dominant_deg.length) {
+            const doms = analysis.dominant_deg.map((d) => Math.round(d) + '°').join(', ');
+            parts.push((lang === 'es' ? 'Dominantes: ' : 'Dominant: ') + doms);
+        }
+        const per = analysis && analysis.period;
+        if (per && per.nx) {
+            parts.push((lang === 'es' ? 'Período: ' : 'Period: ')
+                + Math.round(per.cell_w) + '×' + Math.round(per.cell_h) + ' px ('
+                + per.nx + '×' + per.ny + (lang === 'es' ? ' celdas)' : ' cells)'));
+        }
+        if (analysis && analysis.auto_params) {
+            const ap = analysis.auto_params;
+            parts.push('Auto[snap ' + parseFloat(ap.snap_tol).toFixed(1) + '°'
+                + ', ' + parseFloat(ap.corner_angle).toFixed(0) + '°'
+                + ', ' + parseFloat(ap.sagitta_mm).toFixed(2) + 'mm]');
+        }
+        strip.textContent = parts.join(' · ');
+        strip.classList.toggle('hidden', parts.length === 0);
+    }
+
+    function applyAutoParamsToSliders(autoParams) {
+        if (!autoParams) return;
+        const SAG_INV = { 0.02: 1, 0.05: 2, 0.1: 3, 0.2: 4, 0.4: 5 };
+        const setSlider = (id, val, fmt) => {
+            const el = $('#' + id);
+            if (!el || !isFinite(val)) return;
+            el.value = val;
+            setFill(el);
+            const out = $('output[for="' + id + '"]');
+            if (out) out.value = fmt ? fmt(val) : formatSliderOutput(id, val);
+        };
+        if (autoParams.sagitta_mm !== undefined) {
+            const key = parseFloat(autoParams.sagitta_mm).toFixed(2);
+            if (SAG_INV[key]) setSlider('ctl-sagitta', SAG_INV[key]);
+        }
+        if (autoParams.corner_angle !== undefined) {
+            setSlider('ctl-corner', Math.round(parseFloat(autoParams.corner_angle)));
+        }
+        if (autoParams.snap_tol !== undefined) {
+            setSlider('ctl-snap', parseFloat(autoParams.snap_tol));
+        }
+    }
+
     function renderResults(json, { initial = false, shouldScroll = false } = {}) {
         lastPat = json.pat_content;
 
@@ -1601,9 +1742,20 @@
         });
 
         $('#preview-img').src = json.preview || '';
-        $('#debug-img').src = (json.segments_data && json.segments_data.length && json.debug_base)
+        debugViews.base = (json.segments_data && json.segments_data.length && json.debug_base)
             ? json.debug_base
             : (json.debug || '');
+        debugViews.detect = json.debug || debugViews.base;
+        debugViews.types = json.debug_types || '';
+        debugViews.heat = json.debug_heat || '';
+        const btnTypes = $('#view-types');
+        const btnHeat = $('#view-heat');
+        if (btnTypes) btnTypes.classList.toggle('hidden', !debugViews.types);
+        if (btnHeat) btnHeat.classList.toggle('hidden', !debugViews.heat);
+        if (activeDebugView !== 'base' && !debugViews[activeDebugView]) activeDebugView = 'base';
+        setDebugView(activeDebugView);
+        updateAnalysisStrip(json.analysis);
+        applyAutoParamsToSliders(json.analysis && json.analysis.auto_params);
         setCadRotation(0);
 
         $('#pat-code').value = json.pat_content;
@@ -1633,6 +1785,10 @@
             results.scrollIntoView({ behavior: reducedMotion ? 'auto' : 'smooth', block: 'nearest' });
         }
     }
+
+    $$('.cad-view-btn').forEach((btn) => {
+        btn.addEventListener('click', () => setDebugView(btn.dataset.view));
+    });
 
     const copyBtn = $('#copy-btn');
     if (copyBtn) {

@@ -427,7 +427,10 @@ class ImageToPatConverter:
                 offset_x=0.0, offset_y=0.0,
                 max_resolution=600,
                 tile_mm=100.0, min_dash_mm=0.3, min_gap_mm=0.3,
-                pattern_type="MODEL", return_geometry=False):
+                pattern_type="MODEL", return_geometry=False,
+                curves="fit", corner_angle=135.0, sagitta_mm=0.1,
+                budget=400, snap_tol=2.0, periodic="auto",
+                force_mode=None, auto=False):
         """Pipeline imagen → PAT con escala física en mm.
 
         tile_mm es el tamaño real del lado del tile cuadrado; los segmentos
@@ -480,7 +483,18 @@ class ImageToPatConverter:
             if precision_mode:
                 from vectorize import pipeline as _precision
                 t2 = time.perf_counter()
-                prec = _precision.run(img)
+                if auto:
+                    from vectorize import tuning as _tuning
+                    _bp, prec, _scores = _tuning.auto_tune(
+                        img, tile_mm=tile_mm, budget=budget)
+                else:
+                    prec = _precision.run(img, curves=curves,
+                                          corner_angle=corner_angle,
+                                          tile_mm=tile_mm,
+                                          sagitta_mm=sagitta_mm, budget=budget,
+                                          snap_tol=snap_tol,
+                                          periodic=periodic,
+                                          force_mode=force_mode)
                 timings['detection'] = time.perf_counter() - t2
                 t3 = time.perf_counter()
                 if "error" in prec:
@@ -609,8 +623,28 @@ class ImageToPatConverter:
 
             unique_lines = []
             kept_lines = []
+            kept_types = []
 
-            for x1, y1, x2, y2 in raw_lines:
+            # Cuerdas de curvas (S2): nunca se eliminan por dedup (su perp
+            # mutuo ≈ sagita < dedup_eff), pero sí entran a los buckets
+            # como supresores. Solo válidos si no hubo merge intermedio.
+            raw_flags = None
+            if precision_mode and "is_chord" in precision_info:
+                cand_flags = precision_info["is_chord"]
+                if isinstance(cand_flags, (list, tuple)) and \
+                        len(cand_flags) == len(raw_lines):
+                    raw_flags = cand_flags
+
+            # Tipos de primitiva (S6 UI): "line"|"arc"|"bezier" paralelo a
+            # raw_lines; viaja intacto a través del dedup.
+            raw_types = None
+            if precision_mode and "seg_types" in precision_info:
+                cand_types = precision_info["seg_types"]
+                if isinstance(cand_types, (list, tuple)) and \
+                        len(cand_types) == len(raw_lines):
+                    raw_types = cand_types
+
+            for line_idx, (x1, y1, x2, y2) in enumerate(raw_lines):
                 ang = math.degrees(math.atan2(y2 - y1, x2 - x1))
                 if ang < 0:
                     ang += 180
@@ -620,19 +654,21 @@ class ImageToPatConverter:
                 mx = (x1 + x2) / 2.0
                 my = (y1 + y2) / 2.0
 
+                is_chord = bool(raw_flags is not None and raw_flags[line_idx])
                 is_dup = False
-                for bid in (bucket_id - 1, bucket_id, bucket_id + 1):
-                    actual_bid = bid % (180 // angle_bucket_size)
-                    for (ux1, uy1, ux2, uy2, umx, umy) in buckets.get(actual_bid, []):
-                        if abs(mx - umx) > dedup_eff * 3 and abs(my - umy) > dedup_eff * 3:
-                            continue
-                        perp_dist = self._point_to_line_dist(mx, my, ux1, uy1, ux2, uy2)
-                        if perp_dist < dedup_eff:
-                            if self._segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
-                                is_dup = True
-                                break
-                    if is_dup:
-                        break
+                if not is_chord:
+                    for bid in (bucket_id - 1, bucket_id, bucket_id + 1):
+                        actual_bid = bid % (180 // angle_bucket_size)
+                        for (ux1, uy1, ux2, uy2, umx, umy) in buckets.get(actual_bid, []):
+                            if abs(mx - umx) > dedup_eff * 3 and abs(my - umy) > dedup_eff * 3:
+                                continue
+                            perp_dist = self._point_to_line_dist(mx, my, ux1, uy1, ux2, uy2)
+                            if perp_dist < dedup_eff:
+                                if self._segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
+                                    is_dup = True
+                                    break
+                        if is_dup:
+                            break
 
                 if is_dup:
                     continue
@@ -662,18 +698,85 @@ class ImageToPatConverter:
                          line_color, 1, cv2.LINE_AA)
 
                 kept_lines.append((x1, y1, x2, y2))
+                if raw_types is not None:
+                    kept_types.append(raw_types[line_idx])
 
             if not kept_lines:
                 return {"error": "No se detectaron líneas válidas. Ajusta los parámetros."}
 
-            px_per_unit = side / max(tile_mm, 1e-6)
+            # --- S6: renders para la vista de tipos y el heatmap de error ---
+            debug_types = None
+            debug_heat = None
+            if raw_types is not None and len(kept_types) == len(kept_lines):
+                type_colors = {
+                    "line": (255, 70, 20),    # azul
+                    "arc": (40, 180, 60),     # verde
+                    "bezier": (40, 150, 255),  # naranja
+                }
+                debug_types = debug_base.copy()
+                for (x1, y1, x2, y2), ty in zip(kept_lines, kept_types):
+                    cv2.line(debug_types, (int(round(x1)), int(round(y1))),
+                             (int(round(x2)), int(round(y2))),
+                             type_colors.get(ty, (80, 80, 80)),
+                             1, cv2.LINE_AA)
+                # heatmap: desviación máxima de cada segmento respecto a la
+                # tinta (distanceTransform sobre no-tinta)
+                ink_mask = (edges > 0).astype(np.uint8) if edges is not None \
+                    else None
+                if ink_mask is not None and ink_mask.any():
+                    dist = cv2.distanceTransform(
+                        1 - ink_mask, cv2.DIST_L2, cv2.DIST_MASK_5)
+                    h_img, w_img = dist.shape
+                    sw_ref = max(stroke_width, 1.0)
+                    heat = debug_base.copy()
+                    for (x1, y1, x2, y2) in kept_lines:
+                        n_samples = 16
+                        ts = np.linspace(0.0, 1.0, n_samples)
+                        xs = np.clip(x1 + (x2 - x1) * ts, 0, w_img - 1)
+                        ys = np.clip(y1 + (y2 - y1) * ts, 0, h_img - 1)
+                        ix = np.round(xs).astype(int)
+                        iy = np.round(ys).astype(int)
+                        err = float(dist[iy, ix].max())
+                        t = min(1.0, err / (2.0 * sw_ref))
+                        # verde (60,180,60) -> amarillo -> rojo (50,50,230)
+                        if t < 0.5:
+                            f = t / 0.5
+                            color = (int(60 + (0 - 60) * f),
+                                     int(180 + (20 * f)),
+                                     int(60 + (170 * f)))
+                        else:
+                            f = (t - 0.5) / 0.5
+                            color = (int(0 + 50 * f),
+                                     int(200 - 150 * f),
+                                     int(230 + 0 * f))
+                        cv2.line(heat, (int(round(x1)), int(round(y1))),
+                                 (int(round(x2)), int(round(y2))),
+                                 color, 1, cv2.LINE_AA)
+                    debug_heat = heat
+
+            period_info = prec.get("period") if precision_mode else None
+
+            if precision_mode:
+                # F7: el tile puede ser el recorte de periodicidad (no
+                # cuadrado); la escala física se ancla al lado ORIGINAL.
+                work_w = prec.get("tile_w_px", side)
+                work_h = prec.get("tile_h_px", side)
+                orig_side = prec.get("orig_side_px", side)
+                px_per_unit = orig_side / max(tile_mm, 1e-6)
+                tile_w_mm = work_w / px_per_unit
+                tile_h_mm = work_h / px_per_unit
+            else:
+                px_per_unit = side / max(tile_mm, 1e-6)
+                tile_w_mm = tile_mm
+                tile_h_mm = tile_mm
+                work_h = side
 
             segs_units = []
             for x1, y1, x2, y2 in kept_lines:
                 ux1 = x1 / px_per_unit
-                uy1 = (side - y1) / px_per_unit
+                uy1 = (work_h - y1) / px_per_unit
                 ux2 = x2 / px_per_unit
-                uy2 = (side - y2) / px_per_unit
+                uy2 = (work_h - y2) / px_per_unit
                 segs_units.append((ux1, uy1, ux2, uy2))
 
             # Normaliza al origen y emite "una entrada por línea" (formato que
@@ -685,24 +788,30 @@ class ImageToPatConverter:
             compiled = pat_compiler.compile_pat_perline(
                 segs_norm, name="Image_Pattern",
                 desc="HatchCraft precision pattern",
-                tile_size=tile_mm,
+                tile_size=tile_w_mm,
                 quantize_angles=None,
                 coord_nd=5, dash_nd=5,
-                pattern_type=pattern_type
+                pattern_type=pattern_type,
+                tile_w=tile_w_mm, tile_h=tile_h_mm
             )
 
             timings['dedup+pat'] = time.perf_counter() - t4
             t5 = time.perf_counter()
 
             preview = pat_sim.render_faithful(
-                compiled['pat_content'], tile_mm, tile_mm, tiles=3, size=600
+                compiled['pat_content'], tile_w_mm, tile_h_mm,
+                tiles=3, size=600
             )
 
             timings['preview'] = time.perf_counter() - t5
             total_time = time.perf_counter() - t0
 
-            period_x = self.detect_period(gray, axis='x')
-            period_y = self.detect_period(gray, axis='y')
+            if period_info is not None:
+                period_x = period_info["cell_w"]
+                period_y = period_info["cell_h"]
+            else:
+                period_x = self.detect_period(gray, axis='x')
+                period_y = self.detect_period(gray, axis='y')
 
             extras = []
             if use_clahe:
@@ -722,6 +831,28 @@ class ImageToPatConverter:
                     f"Precision({precision_info['mode']}, "
                     f"x{precision_info['scale']})"
                 )
+                cc = precision_info.get("curve_counts")
+                if cc:
+                    curve_parts = [f"{k}×{v}" for k, v in cc.items() if v]
+                    if curve_parts:
+                        extras.append("Curvas[" + ", ".join(curve_parts) + "]")
+                ri = precision_info.get("regularization")
+                if ri and (ri.get("n_snapped") or ri.get("n_lattice")
+                           or ri.get("n_junctions")):
+                    extras.append(
+                        f"Reg[{ri.get('n_snapped', 0)}s, "
+                        f"{ri.get('n_lattice', 0)}l, "
+                        f"{ri.get('n_junctions', 0)}j]"
+                    )
+                if period_info is not None:
+                    ptxt = f"Periodo[{period_info['nx']}×{period_info['ny']}"
+                    if period_info.get("averaged"):
+                        ptxt += ", avg"
+                    if abs(tile_w_mm - tile_h_mm) > 1e-9:
+                        ptxt += (f", {tile_w_mm:.1f}×{tile_h_mm:.1f}mm")
+                    extras.append(ptxt + "]")
+                if auto and precision_info.get("auto_n"):
+                    extras.append(f"Auto[{precision_info['auto_n']} pruebas]")
             if merge_segments:
                 extras.append(f"Merge({len(raw_lines)}→{len(kept_lines)})")
             extra_str = f" + {', '.join(extras)}" if extras else ""
@@ -748,6 +879,25 @@ class ImageToPatConverter:
                 f"tile={tile_mm:.0f}mm | {timing_str}"
             )
 
+            # S6: análisis estructural para la UI (dominantes, período, auto)
+            analysis = None
+            if precision_mode:
+                _an = {}
+                _ri = precision_info.get("regularization") or {}
+                if _ri.get("dominant_deg"):
+                    _an["dominant_deg"] = _ri["dominant_deg"]
+                if period_info is not None:
+                    _an["period"] = {
+                        "nx": period_info.get("nx"),
+                        "ny": period_info.get("ny"),
+                        "cell_w": period_info.get("cell_w"),
+                        "cell_h": period_info.get("cell_h"),
+                    }
+                if precision_info.get("auto_params"):
+                    _an["auto_params"] = precision_info["auto_params"]
+                if _an:
+                    analysis = _an
+
             result = {
                 "pat_content": compiled['pat_content'],
                 "pat_preview": preview,
@@ -755,8 +905,8 @@ class ImageToPatConverter:
                 "debug_base": debug_base,
                 "stats": stats,
                 "warnings": warnings,
-                "tile_w": tile_mm,
-                "tile_h": tile_mm,
+                "tile_w": tile_w_mm,
+                "tile_h": tile_h_mm,
                 "num_entries": compiled['num_entries'],
                 "stroke_width_px": stroke_width,
                 "dedup_px": dedup_eff,
@@ -765,12 +915,26 @@ class ImageToPatConverter:
                 "segments": len(kept_lines),
                 "segments_mm": [list(s) for s in segs_norm],
             }
+            if debug_types is not None:
+                result["debug_types"] = debug_types
+            if debug_heat is not None:
+                result["debug_heat"] = debug_heat
+            if analysis is not None:
+                result["analysis"] = analysis
+
+            if period_info is not None:
+                period_out = dict(period_info)
+                period_out["tile_w_mm"] = tile_w_mm
+                period_out["tile_h_mm"] = tile_h_mm
+                result["period"] = period_out
 
             if return_geometry:
                 result["lines_px"] = list(kept_lines)
                 result["source_bgr"] = img
                 result["side_px"] = side
                 result["px_per_unit"] = px_per_unit
+                if precision_mode and "primitives" in precision_info:
+                    result["primitives_px"] = precision_info["primitives"]
 
             return result
 

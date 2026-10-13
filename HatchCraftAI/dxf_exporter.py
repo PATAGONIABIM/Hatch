@@ -5,10 +5,12 @@ Permite:
 - sample_segment_colors: muestrear el color fuente (tinta) de cada segmento
   sobre la imagen original, para que el DXF respete el color real del dibujo.
 - image_bytes_to_dxf: vectorizar una imagen y exportarla directamente a DXF
-  (líneas rectas) conservando el color de cada trazo.
+  conservando el color de cada trazo. Con method="precision" exporta las
+  primitivas reales (LINE / ARC / CIRCLE / SPLINE) sin discretizar.
 """
 
 import io
+import math
 
 import cv2
 import ezdxf
@@ -91,11 +93,13 @@ def chain_segments(segments, tol=1.0):
 def write_dxf_entities(entities, colors=None, out_bytes=True, layer=DEFAULT_LAYER, doc=None):
     """Vuelca entidades variadas a DXF.
 
-    entities: lista de dicts con type "line" | "polyline" | "arc" | "circle":
+    entities: lista de dicts con type "line" | "polyline" | "arc" | "circle" | "spline":
       {"type": "line", "p1": (x, y), "p2": (x, y)}
       {"type": "polyline", "points": [(x, y), ...]}
       {"type": "arc", "center": (cx, cy), "radius": r, "start_angle": a0, "end_angle": a1}
       {"type": "circle", "center": (cx, cy), "radius": r}
+      {"type": "spline", "control_points": [(x, y), ...]}  (Bézier cúbica: 4 puntos
+               de control + knots [0,0,0,0,1,1,1,1], grado 3)
     """
     if doc is None:
         doc = ezdxf.new("R2010")
@@ -110,6 +114,14 @@ def write_dxf_entities(entities, colors=None, out_bytes=True, layer=DEFAULT_LAYE
             e = msp.add_arc(ent["center"], ent["radius"], ent["start_angle"], ent["end_angle"])
         elif t == "circle":
             e = msp.add_circle(ent["center"], ent["radius"])
+        elif t == "spline":
+            ctrl = [tuple(float(c) for c in p) for p in ent["control_points"]]
+            if len(ctrl) >= 4:
+                e = msp.add_spline([], degree=3)
+                e.control_points = ctrl
+                e.knots = [0.0, 0.0, 0.0, 0.0, 1.0, 1.0, 1.0, 1.0]
+            else:
+                e = msp.add_line(ctrl[0], ctrl[-1])
         else:
             raise ValueError(f"Tipo de entidad desconocido: {t}")
         e.dxf.layer = layer
@@ -154,6 +166,73 @@ def sample_segment_colors(bgr, lines_px, sample_n=16, neighborhood=1):
     return colors
 
 
+def _prim_entities_precision(res, colors_all, px_per_unit, side):
+    """Primitivas S2 (px imagen y-down) → entidades DXF (mm, y-up)."""
+    prims = res["primitives_px"]
+    source = res["source_bgr"]
+    rep_segs = []
+    for p in prims:
+        t = p["type"]
+        if t == "line":
+            rep_segs.append((p["p0"][0], p["p0"][1], p["p1"][0], p["p1"][1]))
+        elif t == "arc":
+            cx, cy = p["center"]
+            r = p["radius"]
+            a_mid = p["a0"] + 0.5 * p["sweep"]
+            rep_segs.append((cx + r * math.cos(p["a0"]),
+                             cy + r * math.sin(p["a0"]),
+                             cx + r * math.cos(a_mid),
+                             cy + r * math.sin(a_mid)))
+        elif t == "circle":
+            cx, cy = p["center"]
+            r = p["radius"]
+            rep_segs.append((cx, cy, cx + r, cy))
+        elif t == "bezier":
+            ctrl = np.asarray(p["ctrl"], dtype=float).reshape(-1, 4, 2)
+            rep_segs.append((ctrl[0][0][0], ctrl[0][0][1],
+                             ctrl[0][3][0], ctrl[0][3][1]))
+    rep_colors = sample_segment_colors(source, rep_segs) if rep_segs else []
+
+    def _mm(pt):
+        return (pt[0] / px_per_unit, (side - pt[1]) / px_per_unit)
+
+    entities = []
+    entity_colors = []
+    counts = {"lines": 0, "arcs": 0, "circles": 0, "splines": 0}
+    for i, p in enumerate(prims):
+        t = p["type"]
+        color = rep_colors[i] if i < len(rep_colors) else None
+        if t == "line":
+            entities.append({"type": "line", "p1": _mm(p["p0"]),
+                             "p2": _mm(p["p1"])})
+            counts["lines"] += 1
+        elif t == "circle":
+            entities.append({"type": "circle",
+                             "center": _mm(p["center"]),
+                             "radius": p["radius"] / px_per_unit})
+            counts["circles"] += 1
+        elif t == "arc":
+            # imagen y-down CCW -> DXF y-up: θ_dxf = -θ_img; el arco CCW
+            # dxf de -(a0+sweep) a -a0 cubre el mismo conjunto de puntos.
+            a0 = p["a0"] % (2 * math.pi)
+            sweep = p["sweep"] % (2 * math.pi)
+            start_dxf = math.degrees((-(a0 + sweep)) % (2 * math.pi))
+            end_dxf = math.degrees((-a0) % (2 * math.pi))
+            entities.append({"type": "arc", "center": _mm(p["center"]),
+                             "radius": p["radius"] / px_per_unit,
+                             "start_angle": start_dxf,
+                             "end_angle": end_dxf})
+            counts["arcs"] += 1
+        elif t == "bezier":
+            ctrl = np.asarray(p["ctrl"], dtype=float).reshape(-1, 4, 2)
+            for c in ctrl:
+                entities.append({"type": "spline",
+                                  "control_points": [_mm(pt) for pt in c]})
+                counts["splines"] += 1
+        entity_colors.append(color)
+    return entities, entity_colors, counts
+
+
 def image_bytes_to_dxf(image_bytes, method="hough", canny_low=50,
                        canny_high=150, blur_size=3, param1=20, param2=5,
                        tile_mm=100.0, max_resolution=600,
@@ -164,6 +243,9 @@ def image_bytes_to_dxf(image_bytes, method="hough", canny_low=50,
     Reutiliza ImageToPatConverter con return_geometry=True para obtener los
     segmentos en píxeles y la imagen color fuente; muestrea el color de cada
     trazo y los reescala a unidades mm antes de volcar el DXF.
+
+    method="precision" exporta las primitivas reales (LINE/ARC/CIRCLE/SPLINE)
+    directamente desde el pipeline S2, sin discretizar curvas.
 
     fit_arcs=None → activo para method="contour": encadena segmentos y ajusta
     arcos/círculos reales (fit_arc de geometry); lo que no ajusta sale como
@@ -186,6 +268,20 @@ def image_bytes_to_dxf(image_bytes, method="hough", canny_low=50,
     px_per_unit = res["px_per_unit"]
 
     colors = sample_segment_colors(source, lines_px)
+
+    if method == "precision" and "primitives_px" in res:
+        entities, entity_colors, counts = _prim_entities_precision(
+            res, colors, px_per_unit, side)
+        dxf_bytes = write_dxf_entities(entities, colors=entity_colors,
+                                        out_bytes=True)
+        ent_stats = " | ".join(f"{k}: {v}" for k, v in counts.items() if v)
+        return {
+            "dxf_content": dxf_bytes,
+            "segments": len(lines_px),
+            "entities": counts,
+            "stats": f'{res["stats"]} | entidades DXF ({ent_stats})',
+            "warnings": res.get("warnings", []),
+        }
 
     segments = []
     for (x1, y1, x2, y2) in lines_px:

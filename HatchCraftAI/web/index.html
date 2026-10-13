@@ -80,7 +80,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=21">
+    <link rel="stylesheet" href="css/style.css?v=22">
 </head>
 
 <body>
@@ -313,6 +313,8 @@
                                     <option value="lsd" data-i18n="method.lsd">Líneas precisas — LSD</option>
                                     <option value="contour" data-i18n="method.contour">Formas orgánicas — Contornos
                                     </option>
+                                    <option value="precision" data-i18n="method.precision">Precisión — vectorial
+                                        exacto</option>
                                 </select>
                             </div>
                             <div class="field" data-for-method="all">
@@ -338,6 +340,71 @@
                                     <input type="range" id="ctl-p2cont" min="1" max="50" step="1" value="5">
                                     <output class="slider-val" for="ctl-p2cont">0.005</output>
                                 </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="controls-group hidden" data-image-only data-for-method="precision">
+                        <button class="group-header" type="button" aria-expanded="true" data-cursor>
+                            <span class="group-num">01b</span>
+                            <span class="group-title" data-i18n="ctl.precision">PRECISIÓN</span>
+                            <svg class="icon group-chevron">
+                                <use href="#i-chevron" />
+                            </svg>
+                        </button>
+                        <div class="group-body">
+                            <div class="field">
+                                <label class="field-label" data-i18n="ctl.precmode">MODO</label>
+                                <div class="precmode-row">
+                                    <label class="precmode-chip">
+                                        <input type="radio" name="precmode" value="auto" checked>
+                                        <span data-i18n="prec.auto">Auto</span>
+                                    </label>
+                                    <label class="precmode-chip">
+                                        <input type="radio" name="precmode" value="centerline">
+                                        <span data-i18n="prec.centerline">Dibujo</span>
+                                    </label>
+                                    <label class="precmode-chip">
+                                        <input type="radio" name="precmode" value="region">
+                                        <span data-i18n="prec.region">Foto</span>
+                                    </label>
+                                    <label class="precmode-chip">
+                                        <input type="radio" name="precmode" value="strict">
+                                        <span data-i18n="prec.strict">Estricto</span>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="ctl-sagitta" data-i18n="ctl.sagitta">NIVEL DE
+                                    DETALLE</label>
+                                <div class="slider-row">
+                                    <input type="range" id="ctl-sagitta" min="1" max="5" step="1" value="3">
+                                    <output class="slider-val" for="ctl-sagitta">0.10mm</output>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="ctl-corner" data-i18n="ctl.corner">NITIDEZ DE
+                                    ESQUINAS (ÁNGULO MÁX. °)</label>
+                                <div class="slider-row">
+                                    <input type="range" id="ctl-corner" min="90" max="175" step="5" value="135">
+                                    <output class="slider-val" for="ctl-corner">135</output>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <label class="field-label" for="ctl-snap" data-i18n="ctl.snap">RIGIDEZ GEOMÉTRICA
+                                    (SNAP °)</label>
+                                <div class="slider-row">
+                                    <input type="range" id="ctl-snap" min="0" max="5" step="0.5" value="2">
+                                    <output class="slider-val" for="ctl-snap">2.0</output>
+                                </div>
+                            </div>
+                            <div class="field">
+                                <button type="button" class="gold-btn btn-auto" id="btn-auto" data-cursor>
+                                    <svg class="icon">
+                                        <use href="#i-refresh" />
+                                    </svg>
+                                    <span data-i18n="btn.auto">AUTO — AJUSTAR AUTOMÁTICO</span>
+                                </button>
                             </div>
                         </div>
                     </div>
@@ -564,6 +631,17 @@
                                 <img id="debug-img" alt="Detected lines" class="debug-img">
                                 <canvas id="cad-canvas" class="cad-canvas"></canvas>
                             </div>
+                            <div class="view-strip">
+                                <button type="button" class="cad-btn cad-view-btn is-active" id="view-base"
+                                    data-view="base" data-cursor><span data-i18n="view.base">BASE</span></button>
+                                <button type="button" class="cad-btn cad-view-btn" id="view-detect"
+                                    data-view="detect" data-cursor><span data-i18n="view.detect">RED</span></button>
+                                <button type="button" class="cad-btn cad-view-btn hidden" id="view-types"
+                                    data-view="types" data-cursor><span data-i18n="view.types">TIPOS</span></button>
+                                <button type="button" class="cad-btn cad-view-btn hidden" id="view-heat"
+                                    data-view="heat" data-cursor><span data-i18n="view.heat">HEATMAP</span></button>
+                            </div>
+                            <div id="analysis-strip" class="analysis-strip"></div>
                             <div class="cad-hint-bar" id="cad-hint" data-i18n="cad.hint.trim">
                                 Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim)
                                 o alargar (Extend). Clic en vacío para deseleccionar.
@@ -653,7 +731,7 @@
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=23"></script>
+    <script src="js/main.js?v=24"></script>
 </body>
 
 </html>

@@ -99,11 +99,18 @@ def _validate_pattern_type(pattern_type):
     return pt
 
 
-def _validate_image_params(method, filter_mode):
+def _validate_image_params(method, filter_mode, curves=None, periodic=None,
+                           force_mode=None):
     if method not in IMAGE_METHODS:
         raise HTTPException(400, detail={"error": f"Método inválido: {method}"})
     if filter_mode not in FILTER_MODES:
         raise HTTPException(400, detail={"error": f"Filtro inválido: {filter_mode}"})
+    if curves is not None and curves not in ("fit", "rdp"):
+        raise HTTPException(400, detail={"error": f"Modo de curvas inválido: {curves} (usa fit o rdp)"})
+    if periodic is not None and periodic not in ("auto", "off"):
+        raise HTTPException(400, detail={"error": f"Modo periódico inválido: {periodic} (usa auto u off)"})
+    if force_mode is not None and force_mode not in ("centerline", "region"):
+        raise HTTPException(400, detail={"error": f"Modo forzado inválido: {force_mode} (usa centerline o region)"})
 
 
 @app.get("/api/health")
@@ -118,7 +125,7 @@ def _build_image_result(result, elapsed_ms):
     pat_content = result["pat_content"].replace(
         "HatchCraft precision pattern", "HATCH.it precision pattern"
     )
-    return {
+    out = {
         "pat_content": pat_content,
         "preview": img_to_data_url(result["pat_preview"]),
         "debug": img_to_data_url(result["debug_img"]),
@@ -136,6 +143,13 @@ def _build_image_result(result, elapsed_ms):
         "segments_data": result.get("segments_mm", []),
         "elapsed_ms": elapsed_ms,
     }
+    if result.get("debug_types") is not None:
+        out["debug_types"] = img_to_data_url(result["debug_types"])
+    if result.get("debug_heat") is not None:
+        out["debug_heat"] = img_to_data_url(result["debug_heat"])
+    if result.get("analysis") is not None:
+        out["analysis"] = result["analysis"]
+    return out
 
 
 @app.post("/api/convert/image")
@@ -170,9 +184,18 @@ def convert_image(
     min_dash_mm: float = Form(0.3),
     min_gap_mm: float = Form(0.3),
     pattern_type: str = Form("MODEL"),
+    curves: str = Form("fit"),
+    corner_angle: float = Form(135.0),
+    sagitta_mm: float = Form(0.1),
+    budget: int = Form(400),
+    snap_tol: float = Form(2.0),
+    periodic: str = Form("auto"),
+    force_mode: str = Form(""),
+    auto: bool = Form(False),
 ):
     """Convierte una imagen a PAT. Los parámetros replican el contrato de app.py."""
-    _validate_image_params(method, filter_mode)
+    _validate_image_params(method, filter_mode, curves=curves, periodic=periodic,
+                           force_mode=force_mode or None)
     pattern_type = _validate_pattern_type(pattern_type)
 
     data = file.file.read()
@@ -196,6 +219,10 @@ def convert_image(
         "max_resolution": max_resolution, "tile_mm": tile_mm,
         "min_dash_mm": min_dash_mm, "min_gap_mm": min_gap_mm,
         "pattern_type": pattern_type,
+        "curves": curves, "corner_angle": corner_angle,
+        "sagitta_mm": sagitta_mm, "budget": budget,
+        "snap_tol": snap_tol, "periodic": periodic,
+        "force_mode": force_mode or None, "auto": auto,
     }
     key = hashlib.md5(data + repr(sorted(params.items())).encode()).hexdigest()
 
@@ -289,9 +316,18 @@ def export_dxf(
     use_skeleton: bool = Form(False),
     max_resolution: int = Form(400),
     tile_mm: float = Form(100.0),
+    curves: str = Form("fit"),
+    corner_angle: float = Form(135.0),
+    sagitta_mm: float = Form(0.1),
+    budget: int = Form(400),
+    snap_tol: float = Form(2.0),
+    periodic: str = Form("auto"),
+    force_mode: str = Form(""),
+    auto: bool = Form(False),
 ):
     """Vectoriza una imagen y devuelve el DXF (líneas con color fuente)."""
-    _validate_image_params(method, filter_mode)
+    _validate_image_params(method, filter_mode, curves=curves, periodic=periodic,
+                           force_mode=force_mode or None)
     data = file.file.read()
     if not data:
         raise HTTPException(400, detail={"error": "Archivo vacío"})
@@ -303,6 +339,10 @@ def export_dxf(
         blur_size=blur_size, param1=param1, param2=param2,
         filter_mode=filter_mode, use_skeleton=use_skeleton,
         max_resolution=max_resolution, tile_mm=tile_mm,
+        curves=curves, corner_angle=corner_angle,
+        sagitta_mm=sagitta_mm, budget=budget,
+        snap_tol=snap_tol, periodic=periodic,
+        force_mode=force_mode or None, auto=auto,
     )
     if "error" in result:
         raise HTTPException(status_code=400, detail={"error": clean_text(result["error"])})
