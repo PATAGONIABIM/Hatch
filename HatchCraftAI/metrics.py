@@ -377,3 +377,55 @@ def f1_line_pixels(detected_mask, truth_mask, tol=2.0):
     if precision + recall <= 0.0:
         return 0.0
     return 2.0 * precision * recall / (precision + recall)
+
+
+def recall_ink(detected_mask, truth_mask, tol=2.0):
+    """Recall de tinta (Fase 2.8): fracción de px de verdad cubiertos
+    por lo detectado a distancia <= tol.
+
+    Base de f1_line_pixels, pero devuelve solo el recall. En goldens
+    orgánicos tol debe ser ~stroke width (criterio: esqueleto cubierto
+    a <= sw). 0.0 si la verdad está vacía o no hay nada detectado.
+    """
+    import cv2
+    import numpy as np
+    det = np.asarray(detected_mask).astype(np.uint8)
+    tr = np.asarray(truth_mask).astype(np.uint8)
+    if det.shape != tr.shape:
+        return 0.0
+    if not (tr > 0).any() or not (det > 0).any():
+        return 0.0
+    dt_det = cv2.distanceTransform((1 - (det > 0)).astype(np.uint8),
+                                   cv2.DIST_L2, cv2.DIST_MASK_5)
+    return float((dt_det[tr > 0] <= tol).mean())
+
+
+def fragmentation_ratio(n_segments, truth_mask, min_strokes=1):
+    """Segmentos por trazo real (Fase 2.8).
+
+    Trazo real = componente conexo de la máscara de verdad (tinta);
+    ratio = n_segments / max(n_strokes, min_strokes). 1.0 = un segmento
+    por trazo (ideal); valores altos = sobre-fragmentación.
+    """
+    import cv2
+    import numpy as np
+    tr = np.asarray(truth_mask).astype(np.uint8)
+    n_strokes = 0
+    if tr.size and (tr > 0).any():
+        n_strokes = int(cv2.connectedComponents(
+            (tr > 0).astype(np.uint8), connectivity=8)[0]) - 1
+    return float(n_segments) / float(max(n_strokes, min_strokes))
+
+
+def tiling_fidelity(rendered_mask, truth_mask, tol=2.0, render_info=None):
+    """Fidelidad de tiling (Fase 2.8): cobertura de la tinta de verdad
+    por el PAT renderizado (pat_sim.render_faithful). Si render_info
+    indica truncated, penaliza con la fracción servida segments/max.
+    """
+    fidelity = recall_ink(rendered_mask, truth_mask, tol=tol)
+    if render_info and render_info.get("truncated"):
+        mx = float(render_info.get("max_segments") or 0.0)
+        n = float(render_info.get("segments") or 0.0)
+        if mx > 0.0:
+            fidelity *= min(1.0, n / mx)
+    return fidelity

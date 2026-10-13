@@ -377,3 +377,57 @@ def regularize_lines(segments, stroke_width, snap_tol=2.0, min_coverage=0.6):
         segs = [tuple(map(float, s)) for s in merged]
     segs = [s for s in segs if _seg_len(s) >= 0.05]
     return segs, info
+
+
+def structure_kind(segments, curve_frac=0.0, max_cluster=3,
+                   cluster_window=30.0, max_curve_frac=0.5,
+                   min_coherence=0.35, diff_cluster=2):
+    """Clasifica la estructura de la imagen (Fase 2, spec 2.1).
+
+    Devuelve ("organic" | "geometric", info).
+
+    Criterios (cualquiera dispara orgánico):
+    - >= max_cluster direcciones dominantes caídas dentro de una ventana
+      de cluster_window grados: una veta real es una FAMILIA densa de
+      ángulos cercanos (p.ej. 77,86,89,96,100,104), no direcciones
+      separadas como un rayado (0/45/90).
+    - fracción de longitud curva > max_curve_frac habiendo rectas: la
+      imagen se compone mayoritariamente de trazos curvos (los círculos
+      puros no cuentan: no tienen rectas).
+    - coherencia del tensor de orientación < min_coherence CON al menos
+      diff_cluster dominantes: direcciones repartidas sin estructura
+      (los rayados ortogonales tienen coherencia ~0 pero UN solo
+      dominante por eje: su cluster nunca llega a diff_cluster).
+
+    La coherencia es |Σ len·e^{2iθ}| / Σ len (tensor nematico por
+    longitud): 1 = todas las rectas en la misma dirección.
+    """
+    segs = [s for s in segments if _seg_len(s) >= 1.0]
+    info = {"dominants": [], "max_cluster": 0, "coherence": 1.0,
+            "curve_frac": round(float(curve_frac), 3)}
+    if not segs:
+        return "geometric", info
+
+    angs = np.array([_seg_angle(s) for s in segs], dtype=np.float64)
+    lens = np.array([_seg_len(s) for s in segs], dtype=np.float64)
+    total = float(lens.sum())
+    s2 = float(np.sum(lens * np.sin(2.0 * np.radians(angs))))
+    c2 = float(np.sum(lens * np.cos(2.0 * np.radians(angs))))
+    coherence = math.hypot(s2, c2) / total if total > 0 else 1.0
+    info["coherence"] = round(coherence, 3)
+
+    angles = dominant_angles(segs)
+    info["dominants"] = [round(a, 3) for a in angles]
+    best = 0
+    for a in angles:
+        cnt = sum(1 for b in angles
+                  if abs(_wrap180(b - a)) <= cluster_window / 2.0)
+        best = max(best, cnt)
+    info["max_cluster"] = int(best)
+
+    organic = (
+        best >= max_cluster
+        or (curve_frac > max_curve_frac)
+        or (coherence < min_coherence and best >= diff_cluster)
+    )
+    return ("organic" if organic else "geometric"), info

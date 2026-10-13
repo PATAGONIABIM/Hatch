@@ -107,6 +107,24 @@ def _is_curve(prim):
     return prim["type"] in ("arc", "circle", "bezier")
 
 
+def _prim_length(prim):
+    """Longitud (px) de la primitiva: líneas/arcos exactas, Bézier por
+    polígono de control (cota superior suficiente para presupuesto)."""
+    kind = prim["type"]
+    if kind == "line":
+        return math.hypot(prim["p1"][0] - prim["p0"][0],
+                          prim["p1"][1] - prim["p0"][1])
+    if kind == "arc":
+        return abs(prim["radius"] * prim["sweep"])
+    if kind == "circle":
+        return 2.0 * math.pi * abs(prim["radius"])
+    if kind == "bezier":
+        ctrl = np.asarray(prim["ctrl"], dtype=np.float64).reshape(-1, 4, 2)
+        return float(sum(math.hypot(c[0][0] - c[3][0], c[0][1] - c[3][1])
+                         for c in ctrl))
+    return 0.0
+
+
 def primitives_to_segments(prims, sagitta, budget=None, with_types=False):
     """Discretiza primitivas en segmentos + flags is_chord.
 
@@ -116,21 +134,35 @@ def primitives_to_segments(prims, sagitta, budget=None, with_types=False):
     "bezier"). Si budget es dado y el total lo excede, la sagita de las
     CURVAS se degrada con búsqueda binaria del multiplicador ∈ [1, 64]
     (las rectas no se tocan).
+
+    Fase 2.6: el presupuesto escala con la longitud total de las
+    primitivas (400 es el suelo para imágenes típicas, no un techo
+    global: una imagen orgánica larga no debe degradar la sagita ×64).
+    counts lleva "sagitta_eff" (sagita realmente aplicada) y
+    "budget_eff" para que la UI la muestre.
     """
     counts = {"line": 0, "arc": 0, "circle": 0, "bezier": 0}
     sagitta_eff = max(sagitta, 1e-6)
     has_curves = any(_is_curve(p) for p in prims)
+    eff_budget = budget
     if budget is not None and has_curves:
+        total_len = sum(_prim_length(p) for p in prims)
+        # longitud media mínima forzada por el presupuesto: nunca peor
+        # que max(25px, 100·sagita) de media por segmento
+        per_seg = max(25.0, 100.0 * sagitta_eff)
+        eff_budget = max(int(budget), int(math.ceil(total_len / per_seg)))
         base_count = _count_all(prims, sagitta_eff)
-        if base_count > budget:
+        if base_count > eff_budget:
             lo, hi = 1.0, 64.0
             for _ in range(12):
                 mid = 0.5 * (lo + hi)
-                if _count_all(prims, mid * sagitta_eff) <= budget:
+                if _count_all(prims, mid * sagitta_eff) <= eff_budget:
                     hi = mid
                 else:
                     lo = mid
             sagitta_eff = hi * sagitta_eff
+    counts["sagitta_eff"] = float(sagitta_eff)
+    counts["budget_eff"] = int(eff_budget) if eff_budget is not None else None
     segments = []
     is_chord = []
     seg_types = []

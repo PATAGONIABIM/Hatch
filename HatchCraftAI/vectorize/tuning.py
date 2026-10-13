@@ -2,7 +2,11 @@
 
 Grid corto de combinaciones {snap_tol, corner_angle, sagitta_mm} evaluado
 con pipeline.run completo. Score = Chamfer(raster(segs), mask)
-+ λ·(n_segmentos/budget): fidelidad primero, complejidad como desempate.
++ λ·(n_segmentos/budget) + λ_r·(1 − recall_tinta): fidelidad primero,
+complejidad y cobertura de tinta como desempate (Fase 2.8: las métricas
+nuevas de metrics.py son el objetivo del tuning). En estructuras
+orgánicas los combos con snap_tol>0 se descartan (2.1/2.5: el snap se
+desactiva en modo orgánico; recomendarlo sería un parámetro muerto).
 """
 
 import cv2
@@ -30,16 +34,19 @@ DEFAULT_COMBOS = (
 )
 
 
-def auto_tune(img_bgr, tile_mm=100.0, budget=400, combos=None, lam=0.15):
+def auto_tune(img_bgr, tile_mm=100.0, budget=400, combos=None, lam=0.15,
+              lam_recall=0.5):
     """Prueba el grid y devuelve (best_params, best_result, scores).
 
     best_result es el dict completo de pipeline.run con la mejor
     combinación (incluye best_params bajo la key "auto_params" y el nº de
     pruebas bajo "auto_n"). scores es una lista (params, score) ordenada
-    por score ascendente; score = inf para combinaciones con error.
+    por score ascendente; score = inf para combinaciones con error y
+    para combos con snap_tol>0 cuando la imagen resulta orgánica.
+    lam_recall pondera (1 − recall_tinta con tol=stroke_width).
     """
     from . import pipeline as _pipeline
-    from metrics import chamfer_px
+    from metrics import chamfer_px, recall_ink
 
     if combos is None:
         combos = DEFAULT_COMBOS
@@ -61,6 +68,9 @@ def auto_tune(img_bgr, tile_mm=100.0, budget=400, combos=None, lam=0.15):
         if "error" in res:
             scores.append((params, float("inf")))
             continue
+        if res.get("structure_kind") == "organic" and params["snap_tol"] > 0:
+            scores.append((params, float("inf")))
+            continue
         shape = (res["side_px"], res.get("tile_w_px", res["side_px"]))
         raster = _raster_segments(res["segments_px"], shape,
                                    max(res["stroke_width"], 1.0))
@@ -70,7 +80,11 @@ def auto_tune(img_bgr, tile_mm=100.0, budget=400, combos=None, lam=0.15):
             scores.append((params, float("inf")))
             continue
         n_seg = len(res["segments_px"])
-        score = float(chamfer) + lam * min(n_seg, budget) / float(budget)
+        sw = max(float(res.get("stroke_width", 1.0)), 1.0)
+        recall = recall_ink(raster, ink, tol=sw)
+        score = (float(chamfer)
+                 + lam * min(n_seg, budget) / float(budget)
+                 + float(lam_recall) * (1.0 - recall))
         scores.append((params, score))
         if score < best_score:
             best_score = score

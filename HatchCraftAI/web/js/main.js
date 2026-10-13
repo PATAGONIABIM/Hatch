@@ -1732,6 +1732,14 @@
         lastPat = json.pat_content;
 
         $('#stats').textContent = json.stats || '';
+        // Fase 1: badge de fidelidad del tiling (el PAT per-line es exacto
+        // en cualquier ángulo; solo se degrada si el preview recorta).
+        const fid = document.createElement('span');
+        fid.className = 'fidelity-badge' + (json.preview_truncated ? ' warning' : '');
+        fid.textContent = json.preview_truncated
+            ? '⚠ Fidelidad de tiling: preview truncado'
+            : 'Fidelidad de tiling: 100%';
+        $('#stats').appendChild(fid);
         const warnBox = $('#warnings');
         warnBox.innerHTML = '';
         (json.warnings || []).forEach((w) => {

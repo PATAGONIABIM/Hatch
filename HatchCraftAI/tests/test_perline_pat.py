@@ -46,13 +46,15 @@ def test_compile_pat_perline_drafting_type():
 
 
 def test_compile_pat_perline_quantizes_15deg():
-    # 8 grados debe cuantizar a 15; 100 -> 105 -> (>=180? no) queda 105
+    # 8 grados debe cuantizar a 15; la dirección emitida es la del retículo
+    # más próxima a 15° dentro de la tolerancia en mm (no exactamente 15).
     r = pat_compiler.compile_pat_perline(
         [(0.0, 0.0, 9.0, 1.26)], name="T", desc="d", tile_size=20.0,
         quantize_angles=pat_compiler._quantize_angle_15,
     )
     _, entries = _entries(r["pat_content"])
-    assert entries[0]["angle"] in (0, 15)
+    assert abs(entries[0]["angle"] - 15.0) < 0.5, entries[0]["angle"]
+    assert pat_compiler.is_lattice_entry(entries[0], 20.0, 20.0)
 
 
 def test_compile_pat_perline_swap_over_180():
@@ -113,9 +115,12 @@ def test_image_converter_emits_perline_delta():
     _, entries = _entries(pc)
     assert entries, "sin entradas"
     for e in entries:
-        assert abs(e["dx"] - e["dy"]) < 1e-4, "delta imagen no es (tile,tile)"
-        assert e["dashes"][0] > 0
-        assert e["dashes"][1] < 0
+        # Cada entrada debe ser una familia exacta sobre el retículo del tile
+        # (antes se exigía dx==dy==tile, que solo valía en 0°/90°).
+        assert pat_compiler.is_lattice_entry(e, res["tile_w"], res["tile_h"]), e
+        if e["dashes"]:  # vacío = trazo continuo (len >= |L|)
+            assert e["dashes"][0] > 0
+            assert e["dashes"][1] < 0
 
 
 def test_diagonal_simulation_rotated_frame():

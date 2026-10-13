@@ -12,14 +12,19 @@ from geometry import simplify_polyline_adaptive
 from segment_cleaner import dedup_duplicate_segments
 
 
-def render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0):
-    """Renderiza el PAT con el simulador fiel (semántica real de Revit)"""
+def render_pat_preview(pat_content, tile_count=3, preview_size=600,
+                       manual_scale=1.0, return_stats=False):
+    """Renderiza el PAT con el simulador fiel (semántica real de Revit).
+
+    Con return_stats=True devuelve (imagen, stats) donde stats incluye
+    `truncated` si el render se recortó por límite de segmentos.
+    """
     _, entries = pat_sim.parse_pat(pat_content)
     size = pat_sim.infer_tile_size(entries)
     return pat_sim.render_faithful(
         pat_content, size, size,
         tiles=tile_count, size=preview_size,
-        manual_scale=manual_scale
+        manual_scale=manual_scale, return_stats=return_stats
     )
 
 
@@ -175,9 +180,18 @@ class DXFtoPatConverter:
                 )
 
             debug_img = render_dxf_debug(norm, 0.0, 0.0, tile_w, tile_h)
-            preview = pat_sim.render_faithful(
-                compiled['pat_content'], tile_size, tile_size, tiles=3, size=600
+            preview, pv_stats = pat_sim.render_faithful(
+                compiled['pat_content'], tile_size, tile_size, tiles=3, size=600,
+                return_stats=True
             )
+
+            warnings = []
+            if pv_stats.get("truncated"):
+                warnings.append(
+                    f"⚠️ Vista previa truncada a {pv_stats['max_segments']} segmentos "
+                    f"(la zona visible tiene {pv_stats['segments']}); el PAT es válido "
+                    "y en Revit se dibujará completo"
+                )
 
             warnings = []
             if compiled['num_entries'] > 400:
@@ -213,6 +227,7 @@ class DXFtoPatConverter:
                 "ignored_entities": dict(ignored),
                 "segments": len(segments),
                 "segments_mm": [list(s) for s in norm],
+                "preview_truncated": bool(pv_stats.get("truncated")),
             }
 
         except ezdxf.DXFError as e:
@@ -306,7 +321,7 @@ class ImageToPatConverter:
         return abs(dy * px - dx * py + lx2 * ly1 - ly2 * lx1) / math.sqrt(len_sq)
 
     @staticmethod
-    def _segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
+    def _segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2, min_frac=0.0):
         dx = x2 - x1
         dy = y2 - y1
         seg_len = math.hypot(dx, dy)
@@ -321,6 +336,15 @@ class ImageToPatConverter:
 
         a_min, a_max = min(p1, p2), max(p1, p2)
         b_min, b_max = min(q1, q2), max(q1, q2)
+
+        if min_frac > 0.0:
+            # Fase 2.5 (orgánico): solape REAL >= min_frac de la longitud
+            # del segmento más corto; que "se toquen" no basta (las vetas
+            # paralelas cortas se cruzan por el dedup clásico).
+            other_len = math.hypot(ux2 - ux1, uy2 - uy1)
+            ref = min(seg_len, other_len) if other_len > 1e-10 else seg_len
+            overlap = min(a_max, b_max) - max(a_min, b_min)
+            return overlap >= min_frac * ref
 
         tol = seg_len * 0.2
         return a_min <= b_max + tol and b_min <= a_max + tol
@@ -480,6 +504,7 @@ class ImageToPatConverter:
             t1 = time.perf_counter()
 
             raw_lines = []
+            organic_mode = False
             if precision_mode:
                 from vectorize import pipeline as _precision
                 t2 = time.perf_counter()
@@ -503,7 +528,10 @@ class ImageToPatConverter:
                 stroke_width = prec["stroke_width"]
                 dedup_eff = dedup_threshold
                 if dedup_auto:
-                    dedup_eff = min(40.0, max(2.0, dedup_k * stroke_width))
+                    # Fase 2.5: en orgánico k≈1.0 (dos vetas paralelas a
+                    # <1·sw son trazos distintos reales, no duplicados).
+                    k_eff = 1.0 if organic_mode else dedup_k
+                    dedup_eff = min(40.0, max(2.0, k_eff * stroke_width))
                 raw_lines = prec["segments_px"]
                 edges = prec["mask"]
                 gray = prec["gray"]
@@ -511,6 +539,9 @@ class ImageToPatConverter:
                 debug_img = debug_base.copy()
                 upscaled = prec["scale"] > 1
                 precision_info = prec
+                # Fase 2.1/2.5: estructura orgánica (vetas) detectada por
+                # structure_kind en vectorize.pipeline.
+                organic_mode = prec.get("structure_kind") == "organic"
             else:
                 gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                 blurred, edges = self._preprocess(
@@ -664,7 +695,9 @@ class ImageToPatConverter:
                                 continue
                             perp_dist = self._point_to_line_dist(mx, my, ux1, uy1, ux2, uy2)
                             if perp_dist < dedup_eff:
-                                if self._segments_overlap(x1, y1, x2, y2, ux1, uy1, ux2, uy2):
+                                if self._segments_overlap(
+                                        x1, y1, x2, y2, ux1, uy1, ux2, uy2,
+                                        min_frac=0.7 if organic_mode else 0.0):
                                     is_dup = True
                                     break
                         if is_dup:
@@ -798,9 +831,9 @@ class ImageToPatConverter:
             timings['dedup+pat'] = time.perf_counter() - t4
             t5 = time.perf_counter()
 
-            preview = pat_sim.render_faithful(
+            preview, pv_stats = pat_sim.render_faithful(
                 compiled['pat_content'], tile_w_mm, tile_h_mm,
-                tiles=3, size=600
+                tiles=3, size=600, return_stats=True
             )
 
             timings['preview'] = time.perf_counter() - t5
@@ -862,6 +895,12 @@ class ImageToPatConverter:
                 warnings.append(
                     f"⚠️ {compiled['num_entries']} entradas PAT: Revit puede ir lento (>400 recomendado)"
                 )
+            if pv_stats.get("truncated"):
+                warnings.append(
+                    f"⚠️ Vista previa truncada a {pv_stats['max_segments']} segmentos "
+                    f"(la zona visible tiene {pv_stats['segments']}); el PAT es válido "
+                    "y en Revit se dibujará completo"
+                )
             if upscaled:
                 if precision_mode:
                     warnings.append(
@@ -895,6 +934,8 @@ class ImageToPatConverter:
                     }
                 if precision_info.get("auto_params"):
                     _an["auto_params"] = precision_info["auto_params"]
+                _an["structure_kind"] = (
+                    precision_info.get("structure_kind", "geometric"))
                 if _an:
                     analysis = _an
 
@@ -914,6 +955,10 @@ class ImageToPatConverter:
                 "period_y_px": period_y,
                 "segments": len(kept_lines),
                 "segments_mm": [list(s) for s in segs_norm],
+                "preview_truncated": bool(pv_stats.get("truncated")),
+                "structure_kind": (
+                    precision_info.get("structure_kind", "geometric")
+                    if precision_mode else "geometric"),
             }
             if debug_types is not None:
                 result["debug_types"] = debug_types

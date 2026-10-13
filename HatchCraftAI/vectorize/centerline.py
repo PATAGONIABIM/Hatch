@@ -390,9 +390,18 @@ def _ink_coverage(ink, p, q, step=0.5):
 
 def close_gaps(chains, chain_clusters, live, ink, w, sw,
                max_dist_factor=2.2, max_angle_deg=18.0,
-               min_coverage=0.35, max_passes=4):
+               min_coverage=0.35, max_passes=4, organic=False):
     """Une extremos colgantes cercanos con tangentes alineadas y tinta
-    continua en el puente (saltos de esqueleto por umbralizado)."""
+    continua en el puente (saltos de esqueleto por umbralizado).
+
+    Fase 2.3: con organic=True el matching es GLOBAL (cKDTree + coste
+    greedy sin límite de uniones por pasada, alcance 5·sw y puente
+    Hermite cúbico que respeta las tangentes de los extremos). El modo
+    geométrico clásico (≤1 unión/pasada, puente recto) queda intacto.
+    """
+    if organic:
+        return _close_gaps_organic(chains, chain_clusters, live, ink, w, sw,
+                                   max_angle_deg, min_coverage)
     joined_total = 0
 
     def tip_and_tangent(chain, end):
@@ -451,21 +460,208 @@ def close_gaps(chains, chain_clusters, live, ink, w, sw,
                     bx = int(round(pi[0] + v[0] * k))
                     by = int(round(pi[1] + v[1] * k))
                     bridge.append(by * w + bx)
-                chains[ci] = a + bridge + b[1:]
-                far_i = chain_clusters[ci][0] if ei == 1 else chain_clusters[ci][1]
-                far_j = chain_clusters[cj][1] if ej == 0 else chain_clusters[cj][0]
-                chain_clusters[ci] = (far_i, far_j)
-                _purge_chain(live, ci)
-                _purge_chain(live, cj)
-                live.setdefault(far_i, []).append((ci, 0))
-                live.setdefault(far_j, []).append((ci, 1))
-                chains[cj] = None
+                _join_chains(chains, chain_clusters, live, ci, ei, cj, ej,
+                             a, b, bridge)
                 joined_total += 1
                 joined = True
                 break
         if not joined:
             break
     return joined_total
+
+
+def _join_chains(chains, chain_clusters, live, ci, ei, cj, ej, a, b, bridge):
+    """Funde la cadena cj en ci (puente en medio) y actualiza clusters/live."""
+    chains[ci] = a + bridge + b[1:]
+    far_i = chain_clusters[ci][0] if ei == 1 else chain_clusters[ci][1]
+    far_j = chain_clusters[cj][1] if ej == 0 else chain_clusters[cj][0]
+    chain_clusters[ci] = (far_i, far_j)
+    _purge_chain(live, ci)
+    _purge_chain(live, cj)
+    live.setdefault(far_i, []).append((ci, 0))
+    live.setdefault(far_j, []).append((ci, 1))
+    chains[cj] = None
+
+
+def _hermite_bridge(pi, ti, pj, tj, w, dist):
+    """Muestrea un puente Hermite cúbico p→q con tangentes ti/tj (px)."""
+    n_b = max(3, int(round(dist)))
+    bridge = []
+    for k in range(1, n_b):
+        t = k / n_b
+        h00 = 2.0 * t ** 3 - 3.0 * t ** 2 + 1.0
+        h10 = t ** 3 - 2.0 * t ** 2 + t
+        h01 = -2.0 * t ** 3 + 3.0 * t ** 2
+        h11 = t ** 3 - t ** 2
+        x = h00 * pi[0] + h10 * (ti * dist)[0] + h01 * pj[0] + h11 * (tj * dist)[0]
+        y = h00 * pi[1] + h10 * (ti * dist)[1] + h01 * pj[1] + h11 * (tj * dist)[1]
+        idx = int(round(y)) * w + int(round(x))
+        if not bridge or bridge[-1] != idx:
+            bridge.append(idx)
+    return bridge
+
+
+def _close_gaps_organic(chains, chain_clusters, live, ink, w, sw,
+                        max_angle_deg=18.0, min_coverage=0.35,
+                        reach_factor=5.0, max_rounds=30):
+    """Fase 2.3: matching global de extremos libres con cKDTree.
+
+    - alcance 5·sw (vs 2.2·sw del modo geométrico);
+    - coste = distancia/sw + desviación de tangente (greedy global, SIN
+      límite de una unión por pasada);
+    - puente Hermite cúbico que respeta las tangentes de los extremos.
+    """
+    from scipy.spatial import cKDTree
+
+    reach = reach_factor * max(sw, 1.0)
+    joined_total = 0
+    for _ in range(max_rounds):
+        ends = []
+        for ci in range(len(chains)):
+            if chains[ci] is None:
+                continue
+            c0, c1 = chain_clusters[ci]
+            for end in (0, 1):
+                cl = c0 if end == 0 else c1
+                if cl is None:
+                    continue
+                if len(live.get(cl, ())) != 1:
+                    continue
+                idxs = chains[ci] if end == 0 else chains[ci][::-1]
+                tip = np.array(divmod(idxs[0], w)[::-1], dtype=np.float64)
+                back = np.array(divmod(idxs[min(3, len(idxs) - 1)], w)[::-1],
+                                dtype=np.float64)
+                t = tip - back
+                n = np.hypot(*t)
+                if n < 1e-9:
+                    continue
+                ends.append((ci, end, tip, t / n))
+        if len(ends) < 2:
+            break
+        pts = np.array([e[2] for e in ends], dtype=np.float64)
+        pairs = cKDTree(pts).query_pairs(r=reach, output_type="ndarray")
+        if len(pairs) == 0:
+            break
+        cands = []
+        for i, j in pairs:
+            ci, ei, pi, ti = ends[i]
+            cj, ej, pj, tj = ends[j]
+            if ci == cj:
+                continue
+            d = pj - pi
+            dist = float(np.hypot(*d))
+            if dist < 1e-6:
+                continue
+            v = d / dist
+            a1 = float(np.degrees(np.arccos(np.clip(np.dot(ti, v), -1, 1))))
+            a2 = float(np.degrees(np.arccos(np.clip(np.dot(tj, -v), -1, 1))))
+            if a1 > max_angle_deg or a2 > max_angle_deg:
+                continue
+            if _ink_coverage(ink, pi, pj) < min_coverage:
+                continue
+            cost = dist / max(sw, 1.0) + (a1 + a2) / max_angle_deg
+            cands.append((cost, i, j))
+        if not cands:
+            break
+        cands.sort(key=lambda c: c[0])
+        used = set()
+        for _, i, j in cands:
+            ci, ei, pi, ti = ends[i]
+            cj, ej, pj, tj = ends[j]
+            if chains[ci] is None or chains[cj] is None:
+                continue
+            if ci in used or cj in used:
+                continue
+            dist = float(np.hypot(*(pj - pi)))
+            a = list(chains[ci]) if ei == 1 else list(chains[ci])[::-1]
+            b = list(chains[cj]) if ej == 0 else list(chains[cj])[::-1]
+            bridge = _hermite_bridge(pi, ti, pj, tj, w, dist)
+            _join_chains(chains, chain_clusters, live, ci, ei, cj, ej,
+                         a, b, bridge)
+            used.add(ci)
+            used.add(cj)
+            joined_total += 1
+        if not used:
+            break
+    return joined_total
+
+
+def drop_stray_chains(chains, chain_clusters, live, ink, sw,
+                      min_span_factor=3.0, dot_factor=1.5,
+                      max_dev_deg=25.0, min_contrast=0.15):
+    """Fase 2.4: descarta cadenas cortas aisladas (puntos sueltos).
+
+    Solo toca cadenas con extensión < min_span_factor·sw:
+    - < dot_factor·sw = punto suelto (sin dirección definida) → fuera;
+    - si su eje principal se desvía > max_dev_deg del campo de
+      orientación local (tensor de estructura de la tinta), o su
+      contraste medio < min_contrast → fuera.
+    Las cadenas largas (vetas reales) nunca se tocan.
+    """
+    if not live:
+        return 0
+    span_ang = None  # lazily: (gx2, gxy, gy2) suavizados
+    h, w = ink.shape
+    s = max(1.0, float(sw))
+
+    def field_angle(x, y):
+        nonlocal span_ang
+        if span_ang is None:
+            gx = cv2.Sobel(ink, cv2.CV_32F, 1, 0, ksize=3)
+            gy = cv2.Sobel(ink, cv2.CV_32F, 0, 1, ksize=3)
+            k = (0, 0)
+            jxx = cv2.GaussianBlur(gx * gx, k, s)
+            jxy = cv2.GaussianBlur(gx * gy, k, s)
+            jyy = cv2.GaussianBlur(gy * gy, k, s)
+            span_ang = (jxx, jxy, jyy)
+        jxx, jxy, jyy = span_ang
+        xi = int(np.clip(round(x), 0, w - 1))
+        yi = int(np.clip(round(y), 0, h - 1))
+        a = 0.5 * math.atan2(2.0 * float(jxy[yi, xi]),
+                             float(jxx[yi, xi]) - float(jyy[yi, xi]))
+        # tangente = perpendicular al gradiente dominante
+        return math.degrees(a) + 90.0
+
+    dropped = 0
+    for ci in range(len(chains)):
+        if chains[ci] is None or len(chains[ci]) < 2:
+            continue
+        idxs = chains[ci]
+        xs = np.array([i % w for i in idxs], dtype=np.float64)
+        ys = np.array([i // w for i in idxs], dtype=np.float64)
+        span = float(math.hypot(xs.max() - xs.min(), ys.max() - ys.min()))
+        if span >= min_span_factor * s:
+            continue
+        c0, c1 = chain_clusters[ci]
+        if any(cl is not None and len(live.get(cl, ())) >= 3
+               for cl in (c0, c1)):
+            # conectada a un cruce real: forma parte de la red
+            continue
+        drop = False
+        if span < dot_factor * s:
+            # punto suelto: sin dirección definida
+            drop = True
+        else:
+            contrast = float(np.mean(_bilinear(ink, xs, ys)))
+            if contrast < min_contrast:
+                drop = True
+            else:
+                mx, my = float(xs.mean()), float(ys.mean())
+                dx, dy = xs - mx, ys - my
+                cxx = float(np.mean(dx * dx))
+                cyy = float(np.mean(dy * dy))
+                cxy = float(np.mean(dx * dy))
+                chain_ang = math.degrees(0.5 * math.atan2(2.0 * cxy, cxx - cyy))
+                dev = abs(chain_ang - field_angle(mx, my)) % 180.0
+                dev = min(dev, 180.0 - dev)
+                if dev > max_dev_deg:
+                    drop = True
+        if drop:
+            _purge_chain(live, ci)
+            chains[ci] = None
+            chain_clusters[ci] = (None, None)
+            dropped += 1
+    return dropped
 
 
 # --------------------------------------------------------------- refinamiento
@@ -764,11 +960,12 @@ def merge_collinear_segments(segments, sw=1.0, angle_tol=1.0,
 # --------------------------------------------------------------- extractor
 
 
-def extract_chains(skeleton, ink, stroke_width):
+def extract_chains(skeleton, ink, stroke_width, organic=False):
     """F3a completo: esqueleto bool -> lista de dict(coords, refined, closed).
 
     Devuelve (chain_data, info) donde info lleva contadores de cirugía y el
-    mapa near_junction para depuración/tests.
+    mapa near_junction para depuración/tests. organic=True (Fase 2.3/2.4):
+    cierre de gaps global con Hermite y descarte de puntos sueltos.
     """
     sw = max(float(stroke_width), 1.0)
     flat, deg, node, junction = build_graph(skeleton)
@@ -801,7 +998,12 @@ def extract_chains(skeleton, ink, stroke_width):
     info["junctions_contracted"] = jc_m
     info["rhombus_chords_dropped"] = jc_d
     info["deg2_merged"] = merge_through_deg2(chains, chain_clusters, live)
-    info["gaps_closed"] = close_gaps(chains, chain_clusters, live, ink, w, sw)
+    info["gaps_closed"] = close_gaps(chains, chain_clusters, live, ink, w, sw,
+                                     organic=organic)
+    info["strays_dropped"] = 0
+    if organic:
+        info["strays_dropped"] = drop_stray_chains(
+            chains, chain_clusters, live, ink, sw)
 
     # estructuras activas finales
     active = []

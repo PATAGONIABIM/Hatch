@@ -14,6 +14,9 @@ import pytest
 
 from core_logic import ImageToPatConverter
 from dxf_exporter import image_bytes_to_dxf, sample_segment_colors, write_dxf
+from metrics import fragmentation_ratio, recall_ink, tiling_fidelity
+from vectorize import pipeline as _pipeline
+import pat_sim
 
 SAMPLES_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -21,6 +24,32 @@ GOLDEN_IMAGES = [
     "Generated Image September 10, 2026 - 12_36PM.png",
     "38ebb6_c8a796acf67f45c9b1913452f31e2ea6~mv2.gif",
 ]
+
+# Goldens orgánicos (Fase 2.8 / criterio #6: recall de tinta >= 90%).
+# "captura_vetas_usuario.png" = imagen de captura del usuario (si no
+# está en el repo, el test hace skip).
+ORGANIC_GOLDENS = [
+    "madera.png",
+    "Flux2-Klein_00837_.png",
+    "captura_vetas_usuario.png",
+]
+
+# Límite de fragmentación (segmentos/trazo real) medido en baseline:
+# madera.png=5.5, Flux2-Klein=18.87 — margen generoso para CI.
+ORGANIC_FRAG_LIMIT = {
+    "madera.png": 8.0,
+    "Flux2-Klein_00837_.png": 25.0,
+}
+
+
+def _rasterize_lines(segs, shape, thickness):
+    """Rasteriza segmentos (x1,y1,x2,y2) en una máscara uint8."""
+    canvas = np.zeros(shape, dtype=np.uint8)
+    t = max(1, int(round(thickness)))
+    for x1, y1, x2, y2 in segs:
+        cv2.line(canvas, (int(round(x1)), int(round(y1))),
+                 (int(round(x2)), int(round(y2))), 1, t)
+    return canvas
 
 
 def _load_supported_bytes(path):
@@ -110,3 +139,55 @@ def test_exporter_image_to_dxf():
     assert "error" not in res, res.get("error")
     assert res["segments"] > 0
     assert "LINE" in res["dxf_content"].decode("utf-8")
+
+
+@pytest.mark.parametrize("fname", ORGANIC_GOLDENS)
+def test_organic_golden_ink_recall_and_fragmentation(fname):
+    """Fase 2.8 / criterio #6: recall de tinta >= 90% en goldens
+    orgánicos (tol = stroke width) y fragmentación acotada."""
+    path = os.path.join(SAMPLES_DIR, fname)
+    if not os.path.exists(path):
+        pytest.skip(f"{fname} no existe")
+    img = cv2.imread(path, cv2.IMREAD_COLOR)
+    if img is None:
+        pytest.skip(f"{fname} ilegible")
+    res = _pipeline.run(img, curves="fit", tile_mm=100.0, budget=400)
+    assert "error" not in res, res.get("error")
+    assert res.get("structure_kind") == "organic", (
+        f"{fname}: esperaba structure_kind=organic, "
+        f"llegó {res.get('structure_kind')}")
+    det = _rasterize_lines(res["segments_px"], res["mask"].shape,
+                           res["stroke_width"])
+    ink = (res["mask"] > 0).astype(np.uint8)
+    recall = recall_ink(det, ink, tol=float(res["stroke_width"]))
+    assert recall >= 0.90, f"{fname}: recall de tinta {recall:.3f} < 0.90"
+    frag = fragmentation_ratio(len(res["segments_px"]), ink)
+    limit = ORGANIC_FRAG_LIMIT.get(fname, 30.0)
+    assert frag <= limit, f"{fname}: fragmentación {frag:.2f} > {limit}"
+
+
+def test_organic_golden_tiling_fidelity():
+    """Fase 2.8(c): fidelidad de tiling del PAT orgánico end-to-end
+    (render fiel pat_sim cubre la tinta de la fuente)."""
+    fname = "madera.png"
+    path = os.path.join(SAMPLES_DIR, fname)
+    if not os.path.exists(path):
+        pytest.skip(f"{fname} no existe")
+    with open(path, "rb") as f:
+        data = f.read()
+    res = ImageToPatConverter().convert(data, method="precision",
+                                        return_geometry=True)
+    assert "error" not in res, res.get("error")
+    assert res.get("structure_kind") == "organic"
+    side = int(res["side_px"])
+    rend, info = pat_sim.render_faithful(res["pat_content"], size=side,
+                                         show_grid=False, return_stats=True)
+    rg = cv2.cvtColor(rend, cv2.COLOR_BGR2GRAY) if rend.ndim == 3 else rend
+    rendered = (rg < 128).astype(np.uint8)
+    gray = cv2.cvtColor(res["source_bgr"], cv2.COLOR_BGR2GRAY)
+    _, ink = cv2.threshold(gray, 0, 255,
+                           cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    ink_r = cv2.resize(ink, (rendered.shape[1], rendered.shape[0]),
+                       interpolation=cv2.INTER_NEAREST)
+    fid = tiling_fidelity(rendered, ink_r, tol=5.0, render_info=info)
+    assert fid >= 0.90, f"fidelidad de tiling {fid:.3f} < 0.90"

@@ -309,40 +309,211 @@ def _quantize_angle_15(deg):
     return min(VALID_ANGLES_15, key=lambda a: min(abs(deg - a), 360 - abs(deg - a)))
 
 
-def get_pat_shift(ang, tile_size):
-    """Calcula el vector de desplazamiento (dx, dy) según la periodicidad angular del tile.
+# ---------------------------------------------------------------------------
+# 1.1  Entrada PAT "lattice-rational": familia exacta sobre el retículo
+# ---------------------------------------------------------------------------
+# Una familia PAT solo se repite EXACTAMENTE con el tile si su dirección es un
+# vector del retículo (n·Tw, m·Th) con n, m coprimos. Se cuantiza el ángulo al
+# racional más simple que respete una tolerancia de error en mm en los extremos
+# y se calculan dx (paralelo) / dy (perpendicular) con Bézout para que cada
+# tile reciba EXACTAMENTE una copia. La versión anterior (delta = tile·(1,1) o
+# 0.7071·tile) solo era correcta en 0°/90° y producía ruido de 3×3 tiles en el
+# resto de ángulos.
 
-    Garantiza que las líneas inclinadas (Chevron, diagonales, etc.) se repitan de forma
-    uniforme y continua entre tiles contiguos sin dejar huecos vacíos en tablero de ajedrez.
-    Para conservar simetría y compatibilidad con Revit, dx y dy se mantienen simétricos:
-    - Ortogonales (cercanas a 0° o 90°): s = tile_size
-    - Inclinadas / Diagonales (Chevron a 45°/135°): s = 0.7071067812 * tile_size
+_LATTICE_CACHE = {}
+
+
+def lattice_candidates(tw, th, n_max=64, ratio_max=60.0):
+    """Vectores del retículo (n·Tw, m·Th) coprimos, ordenados por |L|."""
+    key = (float(tw), float(th), int(n_max), float(ratio_max))
+    cands = _LATTICE_CACHE.get(key)
+    if cands is None:
+        cands = []
+        span = max(tw, th)
+        for n in range(-int(n_max), int(n_max) + 1):
+            for m in range(0, int(n_max) + 1):
+                if (n == 0 and m == 0) or math.gcd(abs(n), m) != 1:
+                    continue
+                if m == 0 and n != 1:
+                    continue
+                Lx, Ly = n * tw, m * th
+                L = math.hypot(Lx, Ly)
+                if L / span > ratio_max:
+                    continue
+                cands.append((L, n, m, math.atan2(Ly, Lx)))
+        cands.sort()
+        _LATTICE_CACHE[key] = cands
+    return cands
+
+
+def lattice_direction(theta, length, tw, th, tol_mm=0.05,
+                      n_max=64, ratio_max=60.0):
+    """(n, m, L, ang) coprimos con error de extremo <= tol_mm y |L| mínimo."""
+    for L, n, m, a in lattice_candidates(tw, th, n_max, ratio_max):
+        if length * abs(math.sin(theta - a)) <= tol_mm:
+            return n, m, L, a
+    return None
+
+
+def lattice_direction_best(theta, length, tw, th, n_max=64, ratio_max=60.0):
+    """Dirección de retículo con menor error (sin imponer tolerancia)."""
+    best = None
+    for L, n, m, a in lattice_candidates(tw, th, n_max, ratio_max):
+        err = length * abs(math.sin(theta - a))
+        if best is None or err < best[0]:
+            best = (err, n, m, L, a)
+            if err <= 1e-12:
+                break
+    return best[1], best[2], best[3], best[4]
+
+
+def lattice_candidates_within(theta, length, tw, th, tol_mm,
+                              n_max=64, ratio_max=60.0, limit=8):
+    """Primeras `limit` direcciones (por menor |L|) dentro de la tolerancia."""
+    out = []
+    for L, n, m, a in lattice_candidates(tw, th, n_max, ratio_max):
+        if length * abs(math.sin(theta - a)) <= tol_mm:
+            out.append((n, m, L, a))
+            if len(out) >= limit:
+                break
+    return out
+
+
+def lattice_entry(seg, tw, th, tol_mm=0.05, n_max=64, ratio_max=60.0,
+                  start=None):
+    """Entrada PAT cuantizada al retículo para un segmento.
+
+    Rota el segmento alrededor de su punto medio (o lo ancla en `start`) al
+    ángulo cuantizado y calcula dx/dy con Bézout. Devuelve None si ningún
+    (n, m) cumple la tolerancia (el llamador debe partir el segmento).
     """
-    ang_norm = ang % 180.0
-    dist_ortho = min(ang_norm, abs(ang_norm - 90.0), 180.0 - ang_norm)
-    if dist_ortho < 15.0:
-        return tile_size, tile_size
-    s = 0.7071067812 * tile_size
-    return s, s
+    x1, y1, x2, y2 = seg
+    if y2 < y1 or (y2 == y1 and x2 < x1):
+        x1, y1, x2, y2 = x2, y2, x1, y1
+    length = math.hypot(x2 - x1, y2 - y1)
+    theta = math.atan2(y2 - y1, x2 - x1)  # [0, pi)
+    d = lattice_direction(theta, length, tw, th, tol_mm, n_max, ratio_max)
+    if d is None:
+        return None
+    res = _lattice_place(x1, y1, x2, y2, length, d, tw, th, start=start)
+    res["n"], res["m"] = d[0], d[1]
+    res["err_mm"] = length * abs(math.sin(theta - d[3]))
+    return res
+
+
+def _lattice_place(x1, y1, x2, y2, length, d, tw, th, start=None):
+    """Coloca un segmento en la dirección cuantizada `d`=(n,m,L,a)."""
+    n, m, L, a = d
+    ux, uy = math.cos(a), math.sin(a)
+    if start is None:
+        mx, my = (x1 + x2) / 2.0, (y1 + y2) / 2.0
+        ox, oy = mx - ux * length / 2.0, my - uy * length / 2.0
+    else:
+        ox, oy = start
+    # Bézout: n·q − m·p = 1
+    g, s, t = _egcd(n, m)          # n·s + m·t = g = ±1
+    q, p = s * g, -t * g           # n·q − m·p = 1
+    dy = tw * th / L
+    dx = (p * n * tw * tw + q * m * th * th) / L
+    dx = math.fmod(dx, L)
+    dash = min(length, L)
+    gap = -(L - dash)
+    return {
+        "angle": math.degrees(a),
+        "ox": ox, "oy": oy,
+        "dx": dx, "dy": dy,
+        "dashes": [dash, gap] if gap < -1e-9 else [],
+        "L": L,
+        "end": (ox + ux * length, oy + uy * length),
+    }
+
+
+def _egcd(a, b):
+    """MCD extendido: devuelve (g, x, y) con a·x + b·y = g."""
+    if b == 0:
+        return a, 1, 0
+    g, x, y = _egcd(b, a % b)
+    return g, y, x - (a // b) * y
+
+
+def is_lattice_entry(entry, tw, th, tol=0.01, cycle_tol=2e-3):
+    """True si la entrada PAT es una familia exacta sobre el retículo (Tw, Th).
+
+    Comprueba que existe (n, m) coprimos con dy = Tw·Th/|L| y ángulo =
+    atan2(m·Th, n·Tw) (hasta la redondeo del ángulo emitido), y que el ciclo
+    de dashes es |L| (o la línea es continua). Lo usan los tests para validar
+    el formato per-line.
+    """
+    ang = math.radians(entry["angle"] % 180.0)
+    dy = abs(entry["dy"])
+    if dy < 1e-9:
+        return False
+    L = tw * th / dy
+    n, m = round(L * math.cos(ang) / tw), round(L * math.sin(ang) / th)
+    if n == 0 and m == 0:
+        return False
+    if math.gcd(abs(n), m) != 1:
+        return False
+    # (n·Tw, m·Th) debe ser paralelo al ángulo emitido: error medido en mm
+    # sobre |L| (tolera el redondeo del ángulo en el .pat).
+    nx, ny = n * tw, m * th
+    nl = math.hypot(nx, ny)
+    if nl < 1e-12:
+        return False
+    if abs(math.cos(ang) * ny - math.sin(ang) * nx) / nl * L > tol:
+        return False
+    if abs(entry["dx"]) > L + 1e-6:
+        return False
+    dashes = entry["dashes"]
+    if dashes:
+        cycle = sum(abs(d) for d in dashes)
+        # Tol. relativa: el .pat redondea dy/dashes (5-6 decimales) y con
+        # |L| grandes eso mueve el ciclo unas pocas milésimas de mm.
+        if abs(cycle - L) > max(cycle_tol, 1e-5 * L):
+            return False
+    return True
+
+
+def _pick_for_anchor(anchor, x1, y1, x2, y2, length, cands):
+    """Candidato cuya pieza colocada minimiza la deriva del punto final."""
+    best = None
+    for cand in cands:
+        a = cand[3]
+        nx = anchor[0] + math.cos(a) * length
+        ny = anchor[1] + math.sin(a) * length
+        err = math.hypot(nx - x2, ny - y2)
+        if best is None or err < best[0]:
+            best = (err, cand)
+    return best[1]
 
 
 def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
                         quantize_angles=None, coord_nd=6, dash_nd=6,
-                        tile_w=None, tile_h=None):
+                        tile_w=None, tile_h=None, angle_tol_mm=None,
+                        chain_ids=None, n_max=64, ratio_max=60.0,
+                        max_split_depth=20):
     """Emite un .pat en el formato "una entrada por línea" (el que Revit acepta).
 
-    Reproduce fielmente la emisión pre-v2:
+    Reglas de emisión:
       - Una entrada PAT por cada segmento dibujado (NO agrupa en portadoras).
-      - delta = (tile_size, tile_size)  → cada entrada dibuja una línea por tile
-        (siguiente copia a un tile en ambas direcciones) ⇒ sin solapado.
-      - dash = length; gap = -(tile_size - length), con mínimo -0.001
-        (trazo casi continuo dentro del tile).
       - Ángulo en 0..180; si >= 180 se resta 180 y se intercambian puntos.
       - quantize_angles: callable opcional (p.ej. _quantize_angle_15) para el DXF.
+      - Direcciones EXACTAMENTE ortogonales (0°/90° tras el retículo): se
+        conserva la emisión histórica (delta = _shift_for(ángulo)).
+      - Cualquier otra dirección se cuantiza a un vector del retículo
+        (n·Tw, m·Th) coprimo cuyo error en los extremos no supere
+        `angle_tol_mm` (default 0.05 mm); dx/dy salen de Bézout. Si ningún
+        (n, m) cumple la tolerancia, el segmento se parte por la mitad y se
+        reintenta recursivamente (`max_split_depth`).
+      - len >= |L| → trazo continuo (dashes = []).
+      - chain_ids: opcional, lista paralela a `segments`. Los segmentos
+        consecutivos con el mismo id forman una cadena: el inicio de cada
+        pieza se ancla al final de la anterior (sin huecos en los vértices)
+        y se elige la dirección de retículo que minimiza la deriva.
 
     `segments` debe venir YA normalizado al origen (min_x,min_y restados) e Y-up.
-    Devuelve el mismo dict que compile_pat (pat_content/entries/tile_w/tile_h/num_entries)
-    para que render_faithful y parse_pat funcionen sin cambios.
+    Devuelve el mismo dict que compile_pat (pat_content/entries/tile_w/tile_h/
+    num_entries) para que render_faithful y parse_pat funcionen sin cambios.
     """
     if not segments:
         raise ValueError("no hay segmentos para compilar")
@@ -354,64 +525,146 @@ def compile_pat_perline(segments, name, desc, tile_size, pattern_type="MODEL",
     tile = float(tile_size)
     if tile <= 0:
         raise ValueError("tile_size debe ser > 0")
-    tile_r = round(tile, coord_nd)
 
-    # F7 (periodicidad): tile rectangular. Si tile_w/tile_h difieren, el
-    # desplazamiento por entrada se calcula según la orientación para que
-    # la familia quede sobre el retículo (tile_w,0)/(0,tile_h) y la fase
-    # del dash sea continua en ambos ejes. Con tile cuadrado se conserva
-    # el comportamiento histórico (get_pat_shift).
     tw = float(tile_w) if tile_w is not None else tile
     th = float(tile_h) if tile_h is not None else tile
     non_square = abs(tw - th) > 1e-9
+    tol = 0.05 if angle_tol_mm is None else float(angle_tol_mm)
+
+    if chain_ids is not None and len(chain_ids) != len(segments):
+        raise ValueError("chain_ids debe tener la misma longitud que segments")
 
     def _shift_for(ang_deg):
-        if not non_square:
-            return get_pat_shift(ang_deg, tile)
+        """Delta de la familia para direcciones ortogonales exactas.
+
+        Conserva el comportamiento histórico: con tile cuadrado siempre es
+        (tile, tile); con tile rectangular usa el período/espaciado del eje
+        correspondiente.
+        """
         ang_n = ang_deg % 180.0
-        dist_ortho = min(ang_n, abs(ang_n - 90.0), 180.0 - ang_n)
-        if dist_ortho >= 15.0:
-            return 0.7071067812 * tw, 0.7071067812 * th
         if ang_n < 45.0 or ang_n > 135.0:
             # horizontal-ish: período paralelo = tile_w, espaciado perp = tile_h
             return tw, th
+        if not non_square:
+            return tile, tile
         # vertical-ish: período paralelo = tile_h, espaciado perp = -tile_w
         return th, -tw
 
     pat_lines = []
     entries = []
     skipped = 0
-    for (x1, y1, x2, y2) in segments:
+
+    def _emit(angle_deg, ox, oy, dash, gap, shift_x, shift_y, extra=None):
+        ang_q = round(angle_deg, coord_nd)
+        oxr = round(ox, coord_nd)
+        oyr = round(oy, coord_nd)
+        sxr = round(shift_x, coord_nd)
+        syr = round(shift_y, coord_nd)
+        dash_r = round(dash, dash_nd)
+        gap_r = round(gap, dash_nd)
+        if gap_r >= 0:
+            gap_r = -0.001
+        pat_lines.append(f"{ang_q}, {oxr},{oyr}, {sxr},{syr}, {dash_r},{gap_r}")
+        entry = {
+            "angle": float(ang_q),
+            "ox": float(oxr),
+            "oy": float(oyr),
+            "dx": float(sxr),
+            "dy": float(syr),
+            "dashes": [float(dash_r), float(gap_r)],
+        }
+        if extra:
+            entry.update(extra)
+        entries.append(entry)
+
+    # --- normalización y agrupación en cadenas (Fase 1.2) ------------------
+    norm = []
+    for idx, (x1, y1, x2, y2) in enumerate(segments):
         ang = math.degrees(math.atan2(y2 - y1, x2 - x1)) % 360.0
         if quantize_angles is not None:
             ang = float(quantize_angles(ang))
         if ang >= 180.0:
             ang -= 180.0
             x1, y1, x2, y2 = x2, y2, x1, y1
-        ox = round(x1, coord_nd)
-        oy = round(y1, coord_nd)
         length = math.hypot(x2 - x1, y2 - y1)
-        dash = round(length, dash_nd)
-        if dash <= 0:
+        if round(length, dash_nd) <= 0:
             # Segmento degenerado (longitud ~0): un dash 0.0 es inválido en Revit.
             skipped += 1
             continue
-        ang_q = round(ang, coord_nd) if quantize_angles is None else ang
-        shift_x, shift_y = _shift_for(ang)
-        shift_xr = round(shift_x, coord_nd)
-        shift_yr = round(shift_y, coord_nd)
-        gap = round(-(shift_x - length), dash_nd)
-        if gap >= 0:
-            gap = -0.001
-        pat_lines.append(f"{ang_q}, {ox},{oy}, {shift_xr},{shift_yr}, {dash},{gap}")
-        entries.append({
-            "angle": float(ang_q),
-            "ox": float(ox),
-            "oy": float(oy),
-            "dx": float(shift_xr),
-            "dy": float(shift_yr),
-            "dashes": [float(dash), float(gap)],
-        })
+        cid = chain_ids[idx] if chain_ids is not None else idx
+        norm.append((x1, y1, x2, y2, ang, length, cid))
+
+    chains = []
+    for item in norm:
+        if chains and chains[-1][0] == item[6]:
+            chains[-1][1].append(item)
+        else:
+            chains.append((item[6], [item]))
+
+    for _cid, pieces in chains:
+        anchor = None
+        for (x1, y1, x2, y2, ang, length, _c) in pieces:
+            theta = math.radians(ang)
+            pend = [(x1, y1, x2, y2, theta, length, 0)]
+            while pend:
+                px1, py1, px2, py2, ptheta, plen, pdepth = pend.pop()
+                cands = lattice_candidates_within(
+                    ptheta, plen, tw, th, tol, n_max, ratio_max)
+                if not cands:
+                    if pdepth < max_split_depth:
+                        mx, my = (px1 + px2) / 2.0, (py1 + py2) / 2.0
+                        pend.append((mx, my, px2, py2, ptheta,
+                                     plen / 2.0, pdepth + 1))
+                        pend.append((px1, py1, mx, my, ptheta,
+                                     plen / 2.0, pdepth + 1))
+                        continue
+                    cands = [lattice_direction_best(ptheta, plen, tw, th,
+                                                    n_max, ratio_max)]
+                if anchor is None:
+                    sel = cands[0]
+                else:
+                    sel = _pick_for_anchor(anchor, px1, py1, px2, py2,
+                                           plen, cands)
+                place = _lattice_place(px1, py1, px2, py2, plen, sel,
+                                       tw, th, start=anchor)
+                anchor = place["end"]
+                n, m, L = sel[0], sel[1], sel[2]
+                if (n, m) in ((1, 0), (0, 1)):
+                    # Ortodo exacta: emisión histórica (byte a byte).
+                    ang_deg = 0.0 if (n, m) == (1, 0) else 90.0
+                    sx, sy = _shift_for(ang_deg)
+                    dash = min(plen, sx)
+                    gap = -(sx - dash)
+                    _emit(ang_deg, place["ox"], place["oy"], dash, gap,
+                          sx, sy, extra={"n": n, "m": m,
+                                         "err_mm": plen * abs(math.sin(ptheta - sel[3]))})
+                    continue
+                dash = min(plen, L)
+                gap = -(L - dash)
+                extra = {"n": n, "m": m,
+                         "err_mm": plen * abs(math.sin(ptheta - sel[3]))}
+                if gap < -1e-9:
+                    _emit(place["angle"], place["ox"], place["oy"], dash, gap,
+                          place["dx"], place["dy"], extra=extra)
+                else:
+                    # len >= |L|: la familia de copias cubre el portador
+                    # entero → línea continua, sin dashes.
+                    ang_q = round(place["angle"], coord_nd)
+                    oxr = round(place["ox"], coord_nd)
+                    oyr = round(place["oy"], coord_nd)
+                    dxr = round(place["dx"], coord_nd)
+                    dyr = round(place["dy"], coord_nd)
+                    pat_lines.append(f"{ang_q}, {oxr},{oyr}, {dxr},{dyr}")
+                    entry = {
+                        "angle": float(ang_q),
+                        "ox": float(oxr),
+                        "oy": float(oyr),
+                        "dx": float(dxr),
+                        "dy": float(dyr),
+                        "dashes": [],
+                    }
+                    entry.update(extra)
+                    entries.append(entry)
 
     if not pat_lines:
         raise ValueError("todos los segmentos son degenerados (longitud ~0)")

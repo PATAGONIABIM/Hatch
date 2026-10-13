@@ -58,7 +58,7 @@ def _region_segments(mask, sw, rdp_tol):
 
 def _region_joint_segments(img_bgr, work_size, sw_hint, rdp_tol, curves,
                            corner_angle, tile_mm, sagitta_mm, sagitta_px,
-                           budget, snap_tol):
+                           budget, snap_tol, organic=None):
     """F3b: k-means Lab -> eje medio de juntas -> maquinaria centerline.
 
     work_size = (h, w) de trabajo del preproceso: la imagen de color se
@@ -77,7 +77,7 @@ def _region_joint_segments(img_bgr, work_size, sw_hint, rdp_tol, curves,
     if not skel.any():
         return None
     chain_data, surgery = _centerline.extract_chains(
-        skel, joint.astype(np.float32), sw_joint)
+        skel, joint.astype(np.float32), sw_joint, organic=bool(organic))
     if not chain_data:
         return None
     # Tolerancias de LÍNEA con el grosor del EJE (no de la banda): la red
@@ -87,7 +87,8 @@ def _region_joint_segments(img_bgr, work_size, sw_hint, rdp_tol, curves,
     segs, is_chord, prims, counts, s_px, reg_info, seg_types = \
         _centerline_segments(
             chain_data, sw_line, rdp_tol, curves, corner_angle, tile_mm,
-            sagitta_mm, sagitta_px, budget, joint.shape[0], snap_tol)
+            sagitta_mm, sagitta_px, budget, joint.shape[0], snap_tol,
+            organic=organic)
     if not segs:
         return None
     return {
@@ -117,10 +118,16 @@ def _prim_span(prim):
 
 def _centerline_segments(chain_data, sw, rdp_tol, curves, corner_angle,
                          tile_mm, sagitta_mm, sagitta_px, budget, height_px,
-                         snap_tol):
+                         snap_tol, organic=None):
     """Trazos finos -> (segments, is_chord, prims, counts, sagitta, reg_info,
     seg_types). seg_types es paralelo a segments ("line"|"arc"|"bezier")
-    o None en el camino rdp."""
+    o None en el camino rdp.
+
+    Fase 2.1: antes de regularizar se clasifica la estructura
+    (structure_kind); si es orgánica se desactiva el snap angular/lattice
+    (y en run() se re-ejecuta el pipeline con el resto de ajustes).
+    organic=None auto-detecta; True/False fuerza.
+    """
     if curves == "fit":
         # F5: clasificar cada cadena en primitivas
         line_prims = []
@@ -137,14 +144,29 @@ def _centerline_segments(chain_data, sw, rdp_tol, curves, corner_angle,
         # sus cuerdas diminutas generan solapes y entradas PAT basura.
         min_span = max(3.0, 0.75 * max(sw, 1.0))
         curve_prims = [p for p in curve_prims if _prim_span(p) >= min_span]
-        reg_info = None
-        if snap_tol > 0 and line_prims:
-            # F6: regularizar rectas ANTES de discretizar
-            line_segs = [(float(p["p0"][0]), float(p["p0"][1]),
+        # Fase 2.1: clasificar la estructura ANTES de regularizar.
+        line_segs_all = [(float(p["p0"][0]), float(p["p0"][1]),
                           float(p["p1"][0]), float(p["p1"][1]))
                          for p in line_prims]
-            line_segs, reg_info = _regularize.regularize_lines(
-                line_segs, sw, snap_tol=snap_tol)
+        total_line = sum(_prim_span(p) for p in line_prims)
+        total_curve = sum(_prim_span(p) for p in curve_prims)
+        curve_frac = (total_curve / (total_line + total_curve)
+                      if (total_line + total_curve) > 0 else 0.0)
+        if organic is None:
+            kind, sinfo = _regularize.structure_kind(line_segs_all,
+                                                     curve_frac=curve_frac)
+        else:
+            kind = "organic" if organic else "geometric"
+            sinfo = {"forced": True}
+        reg_info = {"structure_kind": kind,
+                    "structure": dict(sinfo,
+                                      curve_frac=round(curve_frac, 3))}
+        eff_snap = snap_tol if kind == "geometric" else 0.0
+        if eff_snap > 0 and line_segs_all:
+            # F6: regularizar rectas ANTES de discretizar
+            line_segs, reg6 = _regularize.regularize_lines(
+                line_segs_all, sw, snap_tol=eff_snap)
+            reg_info.update(reg6)
             min_len = max(3.0, 0.75 * max(sw, 1.0))
             line_segs = [s for s in line_segs
                          if math.hypot(s[2] - s[0], s[3] - s[1]) >= min_len]
@@ -174,7 +196,7 @@ def _centerline_segments(chain_data, sw, rdp_tol, curves, corner_angle,
             kept_types.append(ty)
         segs, is_chord, seg_types = kept, kept_flags, kept_types
         counts["chords"] = int(sum(kept_flags))
-        if snap_tol > 0:
+        if eff_snap > 0:
             # las rectas ya vienen regularizadas/fusionadas; solo agrupar
             order = [i for i, ch in enumerate(is_chord) if not ch] + \
                     [i for i, ch in enumerate(is_chord) if ch]
@@ -207,8 +229,14 @@ def _centerline_segments(chain_data, sw, rdp_tol, curves, corner_angle,
 
 def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
         corner_angle=135.0, tile_mm=None, sagitta_mm=0.1, sagitta_px=None,
-        budget=400, snap_tol=2.0, periodic="auto"):
-    prep = _preprocess.preprocess(img_bgr)
+        budget=400, snap_tol=2.0, periodic="auto", organic=None):
+    """organic (Fase 2.1): None=auto (structure_kind), True/False fuerza.
+
+    En modo orgánico: preprocess con recuperación de crestas (2.2),
+    corner_angle tope 120°, close_gaps global+Hermite y descarte de
+    puntos sueltos (2.3/2.4), sin snap/lattice/junctions (2.1/2.5).
+    """
+    prep = _preprocess.preprocess(img_bgr, organic=bool(organic))
     info = _classify.analyze_strokes(prep["mask"], force_mode=force_mode)
     if "error" in info:
         return {"error": info["error"]}
@@ -217,6 +245,8 @@ def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
     ink = prep["ink"]
     mask = prep["mask"]
     gray = prep["gray"]
+    eff_corner = min(float(corner_angle), 120.0) if organic else corner_angle
+    eff_snap = 0.0 if organic else snap_tol
 
     # --- F7: periodicidad (solo modo centerline) ---
     # Activación conservadora: tinta que toca el borde de la imagen (el
@@ -266,13 +296,24 @@ def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
     seg_types = None
     if info["mode"] == "centerline":
         chain_data, surgery = _centerline.extract_chains(
-            info["skeleton"], ink, sw)
+            info["skeleton"], ink, sw, organic=bool(organic))
         if not chain_data:
             return {"error": "No se pudieron extraer cadenas del esqueleto."}
         segs, is_chord, prims, counts, s_px, reg_info, seg_types = \
             _centerline_segments(
-                chain_data, sw, rdp_tol, curves, corner_angle, tile_mm,
-                sagitta_mm, sagitta_px, budget, h, snap_tol)
+                chain_data, sw, rdp_tol, curves, eff_corner, tile_mm,
+                sagitta_mm, sagitta_px, budget, h, eff_snap, organic=organic)
+        if organic is None and isinstance(reg_info, dict) and \
+                reg_info.get("structure_kind") == "organic":
+            # Fase 2.1: la estructura es orgánica -> re-ejecutar ya en
+            # modo orgánico (ridge recovery + corner 120 + sin snap +
+            # gaps globales). organic=True corta la recursión.
+            return run(img_bgr, force_mode=force_mode, rdp_tol=rdp_tol,
+                       curves=curves,
+                       corner_angle=min(float(corner_angle), 120.0),
+                       tile_mm=tile_mm, sagitta_mm=sagitta_mm,
+                       sagitta_px=sagitta_px, budget=budget,
+                       snap_tol=snap_tol, periodic=periodic, organic=True)
         n_chains = len(chain_data)
         if period is not None:
             # F7-4: wrap mod tile para un PAT sin costuras
@@ -285,8 +326,8 @@ def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
         alt = None
         if img_bgr is not None and getattr(img_bgr, "ndim", 2) == 3:
             alt = _region_joint_segments(
-                img_bgr, (h, w), sw, rdp_tol, curves, corner_angle, tile_mm,
-                sagitta_mm, sagitta_px, budget, snap_tol)
+                img_bgr, (h, w), sw, rdp_tol, curves, eff_corner, tile_mm,
+                sagitta_mm, sagitta_px, budget, eff_snap, organic=organic)
         if alt is not None:
             segs = alt["segments"]
             is_chord = alt["is_chord"]
@@ -346,4 +387,7 @@ def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
             result["seg_types"] = seg_types
     if regions_info is not None:
         result["regions"] = regions_info
+    result["structure_kind"] = (
+        reg_info.get("structure_kind", "geometric")
+        if isinstance(reg_info, dict) else "geometric")
     return result

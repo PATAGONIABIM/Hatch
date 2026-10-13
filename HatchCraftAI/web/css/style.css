@@ -929,6 +929,22 @@ select:focus {
     letter-spacing: 0.04em;
 }
 
+.fidelity-badge {
+    display: inline-block;
+    margin-left: 10px;
+    padding: 1px 8px;
+    font-size: 0.75rem;
+    letter-spacing: 0.03em;
+    border-radius: 10px;
+    border: 1px solid #3a7;
+    color: #3a7;
+}
+
+.fidelity-badge.warning {
+    border-color: var(--accent);
+    color: var(--accent);
+}
+
 .results-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;

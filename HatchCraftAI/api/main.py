@@ -425,15 +425,24 @@ def convert_segments(req: SegmentsRequest):
     elapsed_ms = int((time.perf_counter() - t0) * 1000)
 
     pat_content = compiled["pat_content"]
-    img = render_pat_preview(pat_content, tile_count=3, preview_size=600, manual_scale=1.0)
+    img, pv_stats = render_pat_preview(
+        pat_content, tile_count=3, preview_size=600, manual_scale=1.0,
+        return_stats=True,
+    )
     stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile:.2f} {unit}"
     if removed:
         stats += f" | duplicados eliminados: {removed}"
+    warnings = []
+    if pv_stats.get("truncated"):
+        warnings.append(
+            f"Vista previa truncada a {pv_stats['max_segments']} segmentos; "
+            "el PAT es válido y en Revit se dibujará completo"
+        )
     return {
         "pat_content": pat_content,
         "preview": img_to_data_url(img),
         "stats": stats,
-        "warnings": [],
+        "warnings": warnings,
         "num_entries": compiled["num_entries"],
         "tile_w": tile,
         "tile_h": tile,
@@ -455,15 +464,21 @@ def preview(req: PreviewRequest):
     if len(req.pat_content.encode()) > MAX_PAT_BYTES:
         raise HTTPException(400, detail={"error": "PAT demasiado grande"})
     try:
-        img = render_pat_preview(
+        img, pv_stats = render_pat_preview(
             req.pat_content,
             tile_count=req.tile_count,
             preview_size=req.preview_size,
             manual_scale=req.manual_scale,
+            return_stats=True,
         )
     except Exception as e:
         raise HTTPException(400, detail={"error": clean_text(str(e))})
-    return {"preview": img_to_data_url(img)}
+    return {
+        "preview": img_to_data_url(img),
+        "truncated": bool(pv_stats.get("truncated")),
+        "segments": pv_stats.get("segments"),
+        "max_segments": pv_stats.get("max_segments"),
+    }
 
 
 WEB_DIR = ROOT / "web"

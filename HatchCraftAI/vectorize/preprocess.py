@@ -38,9 +38,15 @@ def upscale_factor(side, min_work=800, max_work=2000):
     return f
 
 
-def preprocess(img_bgr, min_work=800, max_work=2000):
+def preprocess(img_bgr, min_work=800, max_work=2000, organic=False):
     """Devuelve dict con gray (uint8 suavizado+corregido), ink (float 0..1),
-    mask (uint8 0/1, 1=tinta), scale (int) y size (h, w) de trabajo."""
+    mask (uint8 0/1, 1=tinta), scale (int) y size (h, w) de trabajo.
+
+    organic=True (Fase 2.2): además de Sauvola se recupera la tinta tenue
+    con filtro de crestas oscuras (sato/meijering) + histéresis: los tramos
+    débiles conectados a píxeles fuertes se conservan, las manchas de fondo
+    no entran.
+    """
     gray = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2GRAY)
     h, w = gray.shape
     f = upscale_factor(min(h, w), min_work, max_work)
@@ -69,6 +75,10 @@ def preprocess(img_bgr, min_work=800, max_work=2000):
     # 4) Campo de tinta: intensidad de oscuridad 0..1 (para sub-píxel).
     ink = np.clip((255.0 - smoothed.astype(np.float32)) / 255.0, 0.0, 1.0)
 
+    # 5) Fase 2.2 (modo orgánico): rescatar vetas tenues que Sauvola corta.
+    if organic:
+        mask = _recover_faint_ridges(smoothed, mask, ink)
+
     return {
         "gray": smoothed,
         "ink": np.ascontiguousarray(ink),
@@ -76,3 +86,36 @@ def preprocess(img_bgr, min_work=800, max_work=2000):
         "scale": int(f),
         "size": (h, w),
     }
+
+
+def _recover_faint_ridges(smoothed, mask, ink):
+    """Suma a `mask` las crestas oscuras débiles conectadas a tinta fuerte.
+
+    Usa skimage.sato (multiescala, black_ridges) sobre la imagen corregida
+    y histéresis: semillas = respuesta alta (trazos ya visibles), crecimiento
+    = respuesta media (vetas tenues unidas a ellas). El filtro de ink evita
+    semillas sobre fondo liso.
+    """
+    from skimage.filters import apply_hysteresis_threshold, sato
+
+    inv = (mask == 0).astype(np.uint8)
+    dt = cv2.distanceTransform(inv, cv2.DIST_L2, 3)
+    vals = dt[mask > 0]
+    sw = 2.0 * float(np.median(vals)) if vals.size else 3.0
+    sw = max(2.0, sw)
+    sigmas = [max(0.5, 0.5 * sw), max(1.0, sw), max(1.5, 1.5 * sw)]
+
+    resp = sato(smoothed.astype(np.float64) / 255.0,
+                sigmas=sigmas, black_ridges=True)
+    resp = np.nan_to_num(resp, nan=0.0, posinf=0.0, neginf=0.0)
+    pos = resp[resp > 0.0]
+    if pos.size == 0:
+        return mask
+    high = float(np.percentile(pos, 98.0))
+    if high <= 0.0:
+        return mask
+    ridge = apply_hysteresis_threshold(resp, 0.3 * high, high)
+    ridge &= ink >= 0.12
+    if not ridge.any():
+        return mask
+    return np.maximum(mask, ridge.astype(np.uint8))

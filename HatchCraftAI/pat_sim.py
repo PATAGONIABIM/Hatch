@@ -90,20 +90,26 @@ def iter_entry_segments(entry, rect):
                (rect[0], rect[1] + rect[3]),
                (rect[0] + rect[2], rect[1] + rect[3])]
 
-    dlen = math.hypot(wx, wy)
     cycle = sum(abs(d) for d in dashes)
 
-    if dlen > EPS:
-        dux, duy = wx / dlen, wy / dlen
-        dprojs = [(px - ox) * dux + (py - oy) * duy for px, py in corners]
-        kmin = int(math.floor(min(dprojs) / dlen)) - 1
-        kmax = int(math.ceil(max(dprojs) / dlen)) + 1
-        if kmax - kmin > 1200:
-            kmid = (kmin + kmax) // 2
-            kmin = max(kmin, kmid - 600)
-            kmax = min(kmax, kmid + 600)
+    # Rango de miembros k. Los copias k se separan PERPENDICULARMENTE por
+    # k·dy (v·w = dyv con v = (-uy, ux)), así que proyectar las esquinas del
+    # rectángulo sobre v da el intervalo EXACTO de k que puede cortarlo.
+    # Proyectar sobre la dirección del delta (como se hacía antes) subestimaba
+    # el rango y perdía copias en el preview.
+    vx, vy = -uy, ux
+    vprojs = [(px - ox) * vx + (py - oy) * vy for px, py in corners]
+    if abs(dyv) > EPS:
+        k_a = min(vprojs) / dyv
+        k_b = max(vprojs) / dyv
+        kmin = int(math.floor(min(k_a, k_b))) - 1
+        kmax = int(math.ceil(max(k_a, k_b))) + 1
     else:
         kmin, kmax = 0, 0
+    if kmax - kmin > 20000:
+        kmid = (kmin + kmax) // 2
+        kmin = max(kmin, kmid - 10000)
+        kmax = min(kmax, kmid + 10000)
 
     uprojs = [(px - ox) * ux + (py - oy) * uy for px, py in corners]
     t_lo, t_hi = min(uprojs), max(uprojs)
@@ -162,12 +168,18 @@ def infer_tile_size(entries):
 
 def render_faithful(pat_content, tile_w=None, tile_h=None,
                     tiles=3, size=600, manual_scale=1.0, show_grid=True,
-                    bg=(255, 255, 255)):
-    """Renderiza el PAT exactamente como lo interpretaría Revit."""
+                    bg=(255, 255, 255), return_stats=False, max_segments=None):
+    """Renderiza el PAT exactamente como lo interpretaría Revit.
+
+    Con return_stats=True devuelve (imagen, stats) donde stats incluye
+    "truncated": True si se alcanzó el tope de segmentos dibujados (la UI
+    debe avisar: el preview dejaría de ser fiel).
+    """
     name, entries = parse_pat(pat_content)
     img = np.full((size, size, 3), bg, dtype=np.uint8)
     if not entries:
-        return img
+        return (img, {"segments": 0, "max_segments": 0, "truncated": False,
+                      "entries": 0}) if return_stats else img
 
     if tile_w is None or tile_h is None:
         t_inf = infer_tile_size(entries)
@@ -203,17 +215,27 @@ def render_faithful(pat_content, tile_w=None, tile_h=None,
             gy += tile_h
 
     seg_count = 0
-    max_segments = 30000
+    # Tope adaptativo: patrones densos (muchas entradas) necesitan más
+    # segmentos para renderizar los 3×3 tiles completos.
+    if max_segments is None:
+        max_segments = max(30000, 100 * len(entries))
+    truncated = False
     for e in entries:
         for (p1, p2) in iter_entry_segments(e, rect):
             cv2.line(img, to_screen(*p1), to_screen(*p2),
                      (0, 0, 0), 1, cv2.LINE_AA)
             seg_count += 1
             if seg_count >= max_segments:
+                truncated = True
                 break
-        if seg_count >= max_segments:
+        if truncated:
             break
 
+    if return_stats:
+        return img, {"segments": seg_count,
+                     "max_segments": int(max_segments),
+                     "truncated": truncated,
+                     "entries": len(entries)}
     return img
 
 

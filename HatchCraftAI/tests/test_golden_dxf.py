@@ -10,6 +10,7 @@ import pytest
 
 from core_logic import DXFtoPatConverter
 from metrics import count_overlap_entries
+from pat_compiler import is_lattice_entry
 from pat_sim import parse_pat, render_faithful
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -72,10 +73,12 @@ def test_golden_dxf_perline_format(fname):
     assert len(entries) == r["num_entries"]
     assert len(entries) <= r["segments"]
     for e in entries:
-        assert (abs(e["dx"] - tile) < 1e-4 or abs(e["dx"] - 0.7071067812 * tile) < 1e-4), f"dx inesperado: {e['dx']}"
-        assert (abs(e["dy"] - tile) < 1e-4 or abs(e["dy"] - 0.7071067812 * tile) < 1e-4), f"dy inesperado: {e['dy']}"
-        assert e["dashes"][0] > 0
-        assert e["dashes"][-1] < 0
+        # El delta ya no es (tile, tile) a secas: cada entrada debe ser una
+        # familia exacta sobre el retículo (n·Tw, m·Th) coprimo.
+        assert is_lattice_entry(e, tile, tile), f"entrada no lattice: {e}"
+        if e["dashes"]:  # vacío = trazo continuo (len >= |L|)
+            assert e["dashes"][0] > 0
+            assert e["dashes"][-1] < 0
 
     # Render fiel no falla.
     img = render_faithful(content, tile, tile, tiles=3, size=300)
