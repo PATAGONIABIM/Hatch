@@ -220,7 +220,8 @@ def test_auto_aceptacion_primer_intento():
 def test_ui_wiring_estatico():
     html = (WEB / "index.html").read_text(encoding="utf-8")
     assert 'value="precision"' in html
-    assert "btn-auto" in html
+    assert "workbench-grid" in html
+    assert "timer-value" in html
     assert 'name="precmode"' in html
     assert "view-types" in html
     js = (WEB / "js" / "main.js").read_text(encoding="utf-8")

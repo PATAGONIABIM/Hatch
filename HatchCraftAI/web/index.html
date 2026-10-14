@@ -80,7 +80,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Urbanist:ital,wght@0,100..900;1,100..900&display=swap"
         rel="stylesheet">
-    <link rel="stylesheet" href="css/style.css?v=22">
+    <link rel="stylesheet" href="css/style.css?v=25">
 </head>
 
 <body>
@@ -206,40 +206,8 @@
     </div>
 
     <main id="top">
-        <section class="hero">
-            <p class="hero-eyebrow reveal" data-i18n="hero.eyebrow">PATAGONIABIM / HERRAMIENTAS</p>
-            <h1 class="hero-title reveal" data-cursor>HATCH<span class="hero-dot">.it</span></h1>
-            <p class="hero-sub reveal" data-i18n="hero.subtitle">Patrones de relleno para Revit, generados desde
-                imágenes y DXF.</p>
-        </section>
-
         <section class="app-shell reveal">
             <div class="app-card glass">
-                <div id="dropzone" class="dropzone" data-cursor>
-                    <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.dxf" hidden>
-                    <p class="dropzone-title" data-i18n="drop.title">Arrastra tu archivo aquí</p>
-                    <p class="dropzone-sub" data-i18n="drop.sub">PNG, JPG o DXF — máx. 12 MB</p>
-                    <span class="dropzone-plus" aria-label="Seleccionar archivo" title="Seleccionar archivo">
-                        <svg class="plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
-                            <line x1="12" y1="5" x2="12" y2="19"></line>
-                            <line x1="5" y1="12" x2="19" y2="12"></line>
-                        </svg>
-                    </span>
-                    <div class="dropzone-file hidden">
-                        <svg class="icon">
-                            <use href="#i-file" />
-                        </svg>
-                        <span class="file-name"></span>
-                        <span class="file-size"></span>
-                        <img class="file-thumb hidden" alt="">
-                        <button class="file-clear" aria-label="Remove file" data-cursor>
-                            <svg class="icon">
-                                <use href="#i-x" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
-
                 <div id="draw-panel" class="draw-panel hidden">
                     <div class="draw-toolbar">
                         <label class="toggle">
@@ -274,311 +242,6 @@
                         genera en vivo.</p>
                 </div>
 
-                <div class="pattern-type-group">
-                    <div class="pattern-type-header">
-                        <div class="pattern-type-brand">
-                            <span class="group-num">00</span>
-                            <span class="group-title" data-i18n="ctl.patterntype_title">PATRÓN DE RELLENO</span>
-                        </div>
-                        <div class="pattern-type-options">
-                            <label class="circular-check" data-cursor>
-                                <input type="radio" name="patterntype" value="MODEL" checked>
-                                <span class="check-circle"></span>
-                                <span class="check-label" data-i18n="pat.model_short">MODELO</span>
-                            </label>
-                            <label class="circular-check" data-cursor>
-                                <input type="radio" name="patterntype" value="DRAFTING">
-                                <span class="check-circle"></span>
-                                <span class="check-label" data-i18n="pat.drafting_short">DISEÑO</span>
-                            </label>
-                        </div>
-                    </div>
-                    <input type="hidden" id="ctl-patterntype" value="MODEL">
-                </div>
-
-                <div id="controls" class="controls">
-                    <div class="controls-group" data-image-only>
-                        <button class="group-header" type="button" aria-expanded="false" data-cursor>
-                            <span class="group-num">01</span>
-                            <span class="group-title" data-i18n="ctl.detection">DETECCIÓN</span>
-                            <svg class="icon group-chevron">
-                                <use href="#i-chevron" />
-                            </svg>
-                        </button>
-                        <div class="group-body">
-                            <div class="field">
-                                <label class="field-label" for="ctl-method" data-i18n="ctl.method">ALGORITMO</label>
-                                <select id="ctl-method">
-                                    <option value="hough" data-i18n="method.hough">Líneas rectas — Hough</option>
-                                    <option value="lsd" data-i18n="method.lsd">Líneas precisas — LSD</option>
-                                    <option value="contour" data-i18n="method.contour">Formas orgánicas — Contornos
-                                    </option>
-                                    <option value="precision" data-i18n="method.precision">Precisión — vectorial
-                                        exacto</option>
-                                </select>
-                            </div>
-                            <div class="field" data-for-method="all">
-                                <label class="field-label" for="ctl-p1" data-i18n="ctl.minlen">LONGITUD MÍN. DE
-                                    LÍNEA</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-p1" min="5" max="100" step="1" value="20">
-                                    <output class="slider-val" for="ctl-p1">20</output>
-                                </div>
-                            </div>
-                            <div class="field hidden" data-for-method="hough">
-                                <label class="field-label" for="ctl-p2hough" data-i18n="ctl.gap">UNIR HUECOS
-                                    (GAP)</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-p2hough" min="1" max="50" step="1" value="5">
-                                    <output class="slider-val" for="ctl-p2hough">5</output>
-                                </div>
-                            </div>
-                            <div class="field hidden" data-for-method="contour">
-                                <label class="field-label" for="ctl-p2cont" data-i18n="ctl.eps">SUAVIZADO DE
-                                    CURVAS</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-p2cont" min="1" max="50" step="1" value="5">
-                                    <output class="slider-val" for="ctl-p2cont">0.005</output>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="controls-group hidden" data-image-only data-for-method="precision">
-                        <button class="group-header" type="button" aria-expanded="true" data-cursor>
-                            <span class="group-num">01b</span>
-                            <span class="group-title" data-i18n="ctl.precision">PRECISIÓN</span>
-                            <svg class="icon group-chevron">
-                                <use href="#i-chevron" />
-                            </svg>
-                        </button>
-                        <div class="group-body">
-                            <div class="field">
-                                <label class="field-label" data-i18n="ctl.precmode">MODO</label>
-                                <div class="pattern-type-options">
-                                    <label class="circular-check" data-cursor>
-                                        <input type="radio" name="precmode" value="auto" checked>
-                                        <span class="check-circle"></span>
-                                        <span class="check-label" data-i18n="prec.auto">Auto</span>
-                                    </label>
-                                    <label class="circular-check" data-cursor>
-                                        <input type="radio" name="precmode" value="centerline">
-                                        <span class="check-circle"></span>
-                                        <span class="check-label" data-i18n="prec.centerline">Dibujo</span>
-                                    </label>
-                                    <label class="circular-check" data-cursor>
-                                        <input type="radio" name="precmode" value="region">
-                                        <span class="check-circle"></span>
-                                        <span class="check-label" data-i18n="prec.region">Foto</span>
-                                    </label>
-                                    <label class="circular-check" data-cursor>
-                                        <input type="radio" name="precmode" value="strict">
-                                        <span class="check-circle"></span>
-                                        <span class="check-label" data-i18n="prec.strict">Estricto</span>
-                                    </label>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="ctl-sagitta" data-i18n="ctl.sagitta">NIVEL DE
-                                    DETALLE</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-sagitta" min="1" max="5" step="1" value="3">
-                                    <output class="slider-val" for="ctl-sagitta">0.10mm</output>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="ctl-corner" data-i18n="ctl.corner">NITIDEZ DE
-                                    ESQUINAS (ÁNGULO MÁX. °)</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-corner" min="90" max="175" step="5" value="135">
-                                    <output class="slider-val" for="ctl-corner">135</output>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="ctl-snap" data-i18n="ctl.snap">RIGIDEZ GEOMÉTRICA
-                                    (SNAP °)</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-snap" min="0" max="5" step="0.5" value="2">
-                                    <output class="slider-val" for="ctl-snap">2.0</output>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <button type="button" class="gold-btn btn-auto" id="btn-auto" data-cursor>
-                                    <svg class="icon">
-                                        <use href="#i-refresh" />
-                                    </svg>
-                                    <span data-i18n="btn.auto">AUTO — AJUSTAR AUTOMÁTICO</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="controls-group" data-image-only>
-                        <button class="group-header" type="button" aria-expanded="false" data-cursor>
-                            <span class="group-num">02</span>
-                            <span class="group-title" data-i18n="ctl.preprocess">PRE-PROCESAMIENTO</span>
-                            <svg class="icon group-chevron">
-                                <use href="#i-chevron" />
-                            </svg>
-                        </button>
-                        <div class="group-body">
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-clahe">
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.clahe">CLAHE — mejorar contraste</span>
-                            </label>
-                            <div class="field hidden" data-depends="ctl-clahe">
-                                <label class="field-label" for="ctl-claheclip" data-i18n="ctl.claheclip">INTENSIDAD
-                                    CLAHE</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-claheclip" min="1" max="8" step="0.5" value="2">
-                                    <output class="slider-val" for="ctl-claheclip">2.0</output>
-                                </div>
-                            </div>
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-skeleton">
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.skeleton">Skeleton — adelgazar trazos</span>
-                            </label>
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-merge" checked>
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.merge">Unir segmentos colineales</span>
-                            </label>
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-blackhat">
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.blackhat">Black-hat — trazos oscuros
-                                    finos</span>
-                            </label>
-                            <div class="field hidden" data-depends="ctl-blackhat">
-                                <label class="field-label" for="ctl-blackhatk" data-i18n="ctl.blackhatk">TAMAÑO
-                                    KERNEL</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-blackhatk" min="5" max="51" step="2" value="15">
-                                    <output class="slider-val" for="ctl-blackhatk">15</output>
-                                </div>
-                            </div>
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-adaptive">
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.adaptive">Adaptive Threshold — en vez de
-                                    Canny</span>
-                            </label>
-                            <div class="field hidden" data-depends="ctl-adaptive">
-                                <label class="field-label" for="ctl-adapblock" data-i18n="ctl.adapblock">BLOQUE
-                                    ADAPTIVO</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-adapblock" min="3" max="51" step="2" value="11">
-                                    <output class="slider-val" for="ctl-adapblock">11</output>
-                                </div>
-                            </div>
-                            <div class="field hidden" data-depends="ctl-adaptive">
-                                <label class="field-label" for="ctl-adapc" data-i18n="ctl.adapc">CONSTANTE C</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-adapc" min="0" max="20" step="1" value="2">
-                                    <output class="slider-val" for="ctl-adapc">2</output>
-                                </div>
-                            </div>
-                            <label class="toggle">
-                                <input type="checkbox" id="ctl-autocanny" checked>
-                                <span class="toggle-track"><span class="toggle-thumb"></span></span>
-                                <span class="toggle-label" data-i18n="ctl.autocanny">Auto-Canny — umbrales
-                                    automáticos</span>
-                            </label>
-                            <div class="field hidden" data-depends-not="ctl-autocanny">
-                                <label class="field-label" for="ctl-cannylow" data-i18n="ctl.cannylow">CANNY LOW</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-cannylow" min="10" max="200" step="1" value="50">
-                                    <output class="slider-val" for="ctl-cannylow">50</output>
-                                </div>
-                            </div>
-                            <div class="field hidden" data-depends-not="ctl-autocanny">
-                                <label class="field-label" for="ctl-cannyhigh" data-i18n="ctl.cannyhigh">CANNY
-                                    HIGH</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-cannyhigh" min="50" max="300" step="1" value="150">
-                                    <output class="slider-val" for="ctl-cannyhigh">150</output>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="ctl-blur" data-i18n="ctl.blur">DESENFOQUE — LIMPIAR
-                                    RUIDO</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-blur" min="1" max="11" step="2" value="3">
-                                    <output class="slider-val" for="ctl-blur">3</output>
-                                </div>
-                            </div>
-                            <div class="field">
-                                <label class="field-label" for="ctl-filter" data-i18n="ctl.filter">FILTRO DE
-                                    RUIDO</label>
-                                <select id="ctl-filter">
-                                    <option value="gaussian" data-i18n="filter.gaussian">Gaussiano</option>
-                                    <option value="bilateral" data-i18n="filter.bilateral">Bilateral — preserva bordes
-                                    </option>
-                                    <option value="none" data-i18n="filter.none">Ninguno</option>
-                                </select>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="controls-group">
-                        <button class="group-header" type="button" aria-expanded="false" data-cursor>
-                            <span class="group-num">03</span>
-                            <span class="group-title" data-i18n="ctl.scale">ESCALA Y GEOMETRÍA</span>
-                            <svg class="icon group-chevron">
-                                <use href="#i-chevron" />
-                            </svg>
-                        </button>
-                        <div class="group-body">
-                            <div class="field" data-image-only>
-                                <label class="field-label" for="ctl-tilemm" data-i18n="ctl.tilemm">ESCALA REAL DEL TILE
-                                    (MM)</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-tilemm" min="1" max="500" step="1" value="100">
-                                    <output class="slider-val" for="ctl-tilemm">100</output>
-                                </div>
-                            </div>
-                            <div class="field" data-image-only>
-                                <label class="field-label" for="ctl-maxres" data-i18n="ctl.maxres">RESOLUCIÓN DE TRABAJO
-                                    (PX)</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-maxres" min="200" max="1000" step="50" value="400">
-                                    <output class="slider-val" for="ctl-maxres">400</output>
-                                </div>
-                            </div>
-                            <div class="field" data-image-only>
-                                <label class="field-label" for="ctl-offx" data-i18n="ctl.offx">OFFSET X</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-offx" min="0" max="100" step="1" value="0">
-                                    <output class="slider-val" for="ctl-offx">0.00</output>
-                                </div>
-                            </div>
-                            <div class="field" data-image-only>
-                                <label class="field-label" for="ctl-offy" data-i18n="ctl.offy">OFFSET Y</label>
-                                <div class="slider-row">
-                                    <input type="range" id="ctl-offy" min="0" max="100" step="1" value="0">
-                                    <output class="slider-val" for="ctl-offy">0.00</output>
-                                </div>
-                            </div>
-                        </div>
-                        <div class="group-unit" title="Unidades de exportación del patrón — DXF"
-                            data-cursor>
-                            <label class="circular-check" data-cursor>
-                                <input type="radio" name="exportunit" value="cm" checked>
-                                <span class="check-circle"></span>
-                                <span class="check-label" data-i18n="unit.cm">CM</span>
-                            </label>
-                            <label class="circular-check" data-cursor>
-                                <input type="radio" name="exportunit" value="in">
-                                <span class="check-circle"></span>
-                                <span class="check-label" data-i18n="unit.in">PULGADAS</span>
-                            </label>
-                        </div>
-                    </div>
-                </div>
-
-
                 <div id="alert-box" class="alert-box hidden">
                     <svg class="icon">
                         <use href="#i-alert" />
@@ -586,44 +249,52 @@
                     <span class="alert-msg"></span>
                 </div>
 
-                <div id="results" class="results hidden">
-                    <div class="results-top">
+                <div id="results" class="results">
+                    <div class="results-top hidden">
                         <span id="stats" class="stats"></span>
                         <div id="warnings" class="warnings"></div>
                     </div>
 
-                    <div class="results-grid">
-                        <div class="result-card compare-card">
+                    <div class="workbench-grid">
+                        <!-- CAJA 1: LÍNEAS DETECTADAS (40% ancho, 85% alto) -->
+                        <div class="workbench-box box-1 result-card compare-card">
                             <div class="result-head cad-result-head">
                                 <span class="result-title" data-i18n="res.detected">LÍNEAS DETECTADAS</span>
                                 <div class="cad-toolbar" id="cad-toolbar">
                                     <div class="cad-tools">
                                         <button type="button" class="cad-btn" id="cad-rotate"
-                                            title="Rotar 90° horario" data-cursor>
+                                            data-tooltip="Rotar 90° horario" title="Rotar 90° horario" data-cursor>
                                             <span>RO</span>
                                         </button>
                                         <button type="button" class="cad-btn is-active" id="cad-tool-trim"
-                                            data-tool="trim" title="Trim / Extend" data-cursor>
+                                            data-tool="trim"
+                                            data-tooltip="Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim) o alargar (Extend). Clic en vacío para deseleccionar."
+                                            title="Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim) o alargar (Extend). Clic en vacío para deseleccionar."
+                                            data-cursor>
                                             <span>EX/TR</span>
                                         </button>
                                         <button type="button" class="cad-btn" id="cad-tool-draw" data-tool="draw"
-                                            title="Trazar línea" data-cursor>
+                                            data-tooltip="Clic para fijar inicio; clic para fijar fin. Snaps automáticos a extremos y rejilla."
+                                            title="Clic para fijar inicio; clic para fijar fin. Snaps automáticos a extremos y rejilla."
+                                            data-cursor>
                                             <span>LINEA</span>
                                         </button>
                                         <button type="button" class="cad-btn" id="cad-tool-del" data-tool="delete"
-                                            title="Borrar línea" data-cursor>
+                                            data-tooltip="Clic sobre cualquier línea para eliminarla del patrón."
+                                            title="Clic sobre cualquier línea para eliminarla del patrón."
+                                            data-cursor>
                                             <span>DEL</span>
                                         </button>
                                     </div>
                                     <div class="cad-aux">
                                         <button type="button" class="cad-btn cad-btn-ghost cad-btn-icon" id="cad-undo"
-                                            title="Deshacer" data-cursor>
+                                            data-tooltip="Deshacer (Ctrl+Z)" title="Deshacer (Ctrl+Z)" data-cursor>
                                             <svg class="icon">
                                                 <use href="#i-undo" />
                                             </svg>
                                         </button>
                                         <button type="button" class="cad-btn cad-btn-ghost cad-btn-icon" id="cad-reset"
-                                            title="Restablecer original" data-cursor>
+                                            data-tooltip="Restablecer original" title="Restablecer original" data-cursor>
                                             <svg class="icon">
                                                 <use href="#i-refresh" />
                                             </svg>
@@ -631,36 +302,324 @@
                                     </div>
                                 </div>
                             </div>
-                            <div class="compare-wrap">
-                                <img id="debug-img" alt="Detected lines" class="debug-img">
-                                <canvas id="cad-canvas" class="cad-canvas"></canvas>
+                            <div class="compare-stage">
+                                <div class="compare-wrap">
+                                    <img id="debug-img" alt="Detected lines" class="debug-img">
+                                    <canvas id="cad-canvas" class="cad-canvas"></canvas>
+                                </div>
                             </div>
-                            <div class="view-strip">
-                                <button type="button" class="cad-btn cad-view-btn" id="view-base"
-                                    data-view="base" data-cursor><span data-i18n="view.base">BASE</span></button>
-                                <button type="button" class="cad-btn cad-view-btn is-active" id="view-detect"
-                                    data-view="detect" data-cursor><span data-i18n="view.detect">RED</span></button>
-                                <button type="button" class="cad-btn cad-view-btn hidden" id="view-types"
-                                    data-view="types" data-cursor><span data-i18n="view.types">TIPOS</span></button>
-                                <button type="button" class="cad-btn cad-view-btn hidden" id="view-heat"
-                                    data-view="heat" data-cursor><span data-i18n="view.heat">HEATMAP</span></button>
+                            <div class="compare-footer">
+                                <div class="view-strip">
+                                    <button type="button" class="cad-btn cad-view-btn" id="view-base"
+                                        data-view="base" data-cursor><span data-i18n="view.base">BASE</span></button>
+                                    <button type="button" class="cad-btn cad-view-btn is-active" id="view-detect"
+                                        data-view="detect" data-cursor><span data-i18n="view.detect">RED</span></button>
+                                    <button type="button" class="cad-btn cad-view-btn" id="view-types"
+                                        data-view="types" data-cursor><span data-i18n="view.types">TIPOS</span></button>
+                                    <button type="button" class="cad-btn cad-view-btn" id="view-heat"
+                                        data-view="heat" data-cursor><span data-i18n="view.heat">HEATMAP</span></button>
+                                </div>
+                                <div class="dropzone-file hidden">
+                                    <svg class="icon">
+                                        <use href="#i-file" />
+                                    </svg>
+                                    <span class="file-name"></span>
+                                    <span class="file-size"></span>
+                                    <button class="file-clear" type="button" aria-label="Remove file" data-cursor>
+                                        <svg class="icon">
+                                            <use href="#i-x" />
+                                        </svg>
+                                    </button>
+                                </div>
                             </div>
-                            <div id="analysis-strip" class="analysis-strip"></div>
-                            <div class="cad-hint-bar" id="cad-hint" data-i18n="cad.hint.trim">
-                                Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim)
-                                o alargar (Extend). Clic en vacío para deseleccionar.
+                            <div id="analysis-strip" class="analysis-strip hidden"></div>
+                            <div class="cad-hint-bar hidden" id="cad-hint" data-i18n="cad.hint.trim"></div>
+                        </div>
+
+                        <!-- CAJA 2: AJUSTES (20% ancho, 85% alto) -->
+                        <div id="controls" class="workbench-box box-2 controls workbench-controls">
+                            <input type="hidden" id="ctl-method" value="precision">
+                            <input type="radio" name="precmode" value="auto" checked class="hidden" aria-hidden="true">
+
+                            <div class="controls-group" data-image-only data-for-method="precision">
+                                <button class="group-header" type="button" aria-expanded="true" data-cursor>
+                                    <span class="group-num">01</span>
+                                    <span class="group-title" data-i18n="ctl.precision">PRECISIÓN</span>
+                                    <svg class="icon group-chevron">
+                                        <use href="#i-chevron" />
+                                    </svg>
+                                </button>
+                                <div class="group-collapse">
+                                    <div class="group-body">
+                                        <div class="field">
+                                            <label class="field-label" for="ctl-sagitta" data-i18n="ctl.sagitta">NIVEL DE
+                                                DETALLE</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-sagitta" min="1" max="5" step="1" value="3">
+                                                <output class="slider-val" for="ctl-sagitta">0.10mm</output>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="ctl-corner" data-i18n="ctl.corner">NITIDEZ DE
+                                                ESQUINAS (ÁNGULO MÁX. °)</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-corner" min="90" max="175" step="5" value="135">
+                                                <output class="slider-val" for="ctl-corner">135</output>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="ctl-snap" data-i18n="ctl.snap">RIGIDEZ GEOMÉTRICA
+                                                (SNAP °)</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-snap" min="0" max="5" step="0.5" value="2">
+                                                <output class="slider-val" for="ctl-snap">2.0</output>
+                                            </div>
+                                        </div>
+                                        <div class="field" data-for-method="all">
+                                            <label class="field-label" for="ctl-p1" data-i18n="ctl.minlen">LONGITUD MÍN. DE
+                                                LÍNEA</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-p1" min="5" max="100" step="1" value="20">
+                                                <output class="slider-val" for="ctl-p1">20</output>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="controls-group" data-image-only>
+                                <button class="group-header" type="button" aria-expanded="false" data-cursor>
+                                    <span class="group-num">02</span>
+                                    <span class="group-title" data-i18n="ctl.preprocess">PRE-PROCESAMIENTO</span>
+                                    <svg class="icon group-chevron">
+                                        <use href="#i-chevron" />
+                                    </svg>
+                                </button>
+                                <div class="group-collapse">
+                                    <div class="group-body">
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-clahe">
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.clahe">CLAHE — mejorar contraste</span>
+                                        </label>
+                                        <div class="field hidden" data-depends="ctl-clahe">
+                                            <label class="field-label" for="ctl-claheclip" data-i18n="ctl.claheclip">INTENSIDAD
+                                                CLAHE</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-claheclip" min="1" max="8" step="0.5" value="2">
+                                                <output class="slider-val" for="ctl-claheclip">2.0</output>
+                                            </div>
+                                        </div>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-skeleton">
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.skeleton">Skeleton — adelgazar trazos</span>
+                                        </label>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-merge" checked>
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.merge">Unir segmentos colineales</span>
+                                        </label>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-blackhat">
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.blackhat">Black-hat — trazos oscuros
+                                                finos</span>
+                                        </label>
+                                        <div class="field hidden" data-depends="ctl-blackhat">
+                                            <label class="field-label" for="ctl-blackhatk" data-i18n="ctl.blackhatk">TAMAÑO
+                                                KERNEL</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-blackhatk" min="5" max="51" step="2" value="15">
+                                                <output class="slider-val" for="ctl-blackhatk">15</output>
+                                            </div>
+                                        </div>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-adaptive">
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.adaptive">Adaptive Threshold — en vez de
+                                                Canny</span>
+                                        </label>
+                                        <div class="field hidden" data-depends="ctl-adaptive">
+                                            <label class="field-label" for="ctl-adapblock" data-i18n="ctl.adapblock">BLOQUE
+                                                ADAPTIVO</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-adapblock" min="3" max="51" step="2" value="11">
+                                                <output class="slider-val" for="ctl-adapblock">11</output>
+                                            </div>
+                                        </div>
+                                        <div class="field hidden" data-depends="ctl-adaptive">
+                                            <label class="field-label" for="ctl-adapc" data-i18n="ctl.adapc">CONSTANTE C</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-adapc" min="0" max="20" step="1" value="2">
+                                                <output class="slider-val" for="ctl-adapc">2</output>
+                                            </div>
+                                        </div>
+                                        <label class="toggle">
+                                            <input type="checkbox" id="ctl-autocanny" checked>
+                                            <span class="toggle-track"><span class="toggle-thumb"></span></span>
+                                            <span class="toggle-label" data-i18n="ctl.autocanny">Auto-Canny — umbrales
+                                                automáticos</span>
+                                        </label>
+                                        <div class="field hidden" data-depends-not="ctl-autocanny">
+                                            <label class="field-label" for="ctl-cannylow" data-i18n="ctl.cannylow">CANNY LOW</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-cannylow" min="10" max="200" step="1" value="50">
+                                                <output class="slider-val" for="ctl-cannylow">50</output>
+                                            </div>
+                                        </div>
+                                        <div class="field hidden" data-depends-not="ctl-autocanny">
+                                            <label class="field-label" for="ctl-cannyhigh" data-i18n="ctl.cannyhigh">CANNY
+                                                HIGH</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-cannyhigh" min="50" max="300" step="1" value="150">
+                                                <output class="slider-val" for="ctl-cannyhigh">150</output>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="ctl-blur" data-i18n="ctl.blur">DESENFOQUE — LIMPIAR
+                                                RUIDO</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-blur" min="1" max="11" step="2" value="3">
+                                                <output class="slider-val" for="ctl-blur">3</output>
+                                            </div>
+                                        </div>
+                                        <div class="field">
+                                            <label class="field-label" for="ctl-filter" data-i18n="ctl.filter">FILTRO DE
+                                                RUIDO</label>
+                                            <select id="ctl-filter">
+                                                <option value="gaussian" data-i18n="filter.gaussian">Gaussiano</option>
+                                                <option value="bilateral" data-i18n="filter.bilateral">Bilateral — preserva bordes
+                                                </option>
+                                                <option value="none" data-i18n="filter.none">Ninguno</option>
+                                            </select>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="controls-group">
+                                <button class="group-header" type="button" aria-expanded="false" data-cursor>
+                                    <span class="group-num">03</span>
+                                    <span class="group-title" data-i18n="ctl.scale">ESCALA Y GEOMETRÍA</span>
+                                    <svg class="icon group-chevron">
+                                        <use href="#i-chevron" />
+                                    </svg>
+                                </button>
+                                <div class="group-collapse">
+                                    <div class="group-body">
+                                        <div class="field" data-image-only>
+                                            <label class="field-label" for="ctl-tilemm" data-i18n="ctl.tilemm">ESCALA REAL DEL TILE
+                                                (MM)</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-tilemm" min="1" max="500" step="1" value="100">
+                                                <output class="slider-val" for="ctl-tilemm">100</output>
+                                            </div>
+                                        </div>
+                                        <div class="field" data-image-only>
+                                            <label class="field-label" for="ctl-maxres" data-i18n="ctl.maxres">RESOLUCIÓN DE TRABAJO
+                                                (PX)</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-maxres" min="200" max="1000" step="50" value="400">
+                                                <output class="slider-val" for="ctl-maxres">400</output>
+                                            </div>
+                                        </div>
+                                        <div class="field" data-image-only>
+                                            <label class="field-label" for="ctl-offx" data-i18n="ctl.offx">OFFSET X</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-offx" min="0" max="100" step="1" value="0">
+                                                <output class="slider-val" for="ctl-offx">0.00</output>
+                                            </div>
+                                        </div>
+                                        <div class="field" data-image-only>
+                                            <label class="field-label" for="ctl-offy" data-i18n="ctl.offy">OFFSET Y</label>
+                                            <div class="slider-row">
+                                                <input type="range" id="ctl-offy" min="0" max="100" step="1" value="0">
+                                                <output class="slider-val" for="ctl-offy">0.00</output>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="result-card">
+
+                        <!-- CAJA 3: SIMULACIÓN (40% ancho, 85% alto) -->
+                        <div class="workbench-box box-3 result-card sim-card">
                             <div class="result-head">
                                 <span class="result-title" data-i18n="res.preview">SIMULACIÓN</span>
                                 <div class="result-tags">
                                     <span class="result-badge" data-i18n="res.tile3">3x3 TILES</span>
                                 </div>
                             </div>
-                            <div class="preview-wrap">
-                                <img id="preview-img" alt="Revit pattern preview" class="preview-img">
+                            <div class="sim-stage">
+                                <div class="preview-wrap">
+                                    <img id="preview-img" alt="Revit pattern preview" class="preview-img">
+                                </div>
                             </div>
+                            <div class="sim-footer" aria-hidden="true"></div>
+                        </div>
+
+                        <!-- CAJA 4: CARGA DE ARCHIVOS (40% ancho, 15% alto) -->
+                        <div class="workbench-box box-4">
+                            <div id="dropzone" class="dropzone dropzone-compact" data-cursor>
+                                <input type="file" id="file-input" accept=".png,.jpg,.jpeg,.dxf" hidden>
+                                <span class="dropzone-plus" aria-label="Seleccionar archivo" title="Seleccionar archivo">
+                                    <svg class="plus-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+                                        <line x1="12" y1="5" x2="12" y2="19"></line>
+                                        <line x1="5" y1="12" x2="19" y2="12"></line>
+                                    </svg>
+                                </span>
+                                <div class="dropzone-copy">
+                                    <p class="dropzone-title" data-i18n="drop.title">Arrastra tu archivo aquí</p>
+                                    <p class="dropzone-sub" data-i18n="drop.sub">PNG, JPG o DXF — máx. 12 MB</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CAJA 5: CRONÓMETRO (20% ancho, 15% alto) -->
+                        <div class="workbench-box box-5 exec-timer" aria-live="polite">
+                            <span id="timer-value" class="timer-value">00:00</span>
+                            <span class="timer-unit" data-i18n="timer.seg">SEG</span>
+                        </div>
+
+                        <!-- CAJA 6: SALIDA / DESCARGA (40% ancho, 15% alto) -->
+                        <div class="workbench-box box-6 workbench-actions">
+                            <div class="pattern-type-group">
+                                <div class="pattern-type-header">
+                                    <div class="pattern-type-brand">
+                                        <span class="group-title" data-i18n="ctl.patterntype_title">PATRÓN DE RELLENO</span>
+                                    </div>
+                                    <div class="output-selectors">
+                                        <div class="pattern-type-options">
+                                            <label class="circular-check" data-cursor>
+                                                <input type="radio" name="patterntype" value="MODEL" checked>
+                                                <span class="check-circle"></span>
+                                                <span class="check-label" data-i18n="pat.model_short">MODELO</span>
+                                            </label>
+                                            <label class="circular-check" data-cursor>
+                                                <input type="radio" name="patterntype" value="DRAFTING">
+                                                <span class="check-circle"></span>
+                                                <span class="check-label" data-i18n="pat.drafting_short">DISEÑO</span>
+                                            </label>
+                                        </div>
+                                        <span class="selector-sep" aria-hidden="true"></span>
+                                        <div class="group-unit" title="Unidades de exportación del patrón — DXF" data-cursor>
+                                            <label class="circular-check" data-cursor>
+                                                <input type="radio" name="exportunit" value="cm" checked>
+                                                <span class="check-circle"></span>
+                                                <span class="check-label" data-i18n="unit.cm">CM</span>
+                                            </label>
+                                            <label class="circular-check" data-cursor>
+                                                <input type="radio" name="exportunit" value="in">
+                                                <span class="check-circle"></span>
+                                                <span class="check-label" data-i18n="unit.in">PULGADAS</span>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                                <input type="hidden" id="ctl-patterntype" value="MODEL">
+                            </div>
+
                             <div class="sim-actions-bar">
                                 <button id="download-btn" class="gold-btn" data-cursor>
                                     <svg class="icon">
@@ -677,9 +636,17 @@
                             </div>
                         </div>
                     </div>
+
                     <textarea id="pat-code" class="hidden" aria-hidden="true" style="display:none;"></textarea>
                 </div>
             </div>
+        </section>
+
+        <section class="hero">
+            <p class="hero-eyebrow reveal" data-i18n="hero.eyebrow">PATAGONIABIM / HERRAMIENTAS</p>
+            <h1 class="hero-title reveal" data-cursor>HATCH<span class="hero-dot">.it</span></h1>
+            <p class="hero-sub reveal" data-i18n="hero.subtitle">Patrones de relleno para Revit, generados desde
+                imágenes y DXF.</p>
         </section>
 
         <section class="faq-section reveal">
@@ -735,7 +702,7 @@
     </main>
 
     <script src="js/lenis.min.js"></script>
-    <script src="js/main.js?v=24"></script>
+    <script src="js/main.js?v=25"></script>
 </body>
 
 </html>

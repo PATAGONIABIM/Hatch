@@ -96,6 +96,7 @@
             'cad.hint.trim': 'Límite infinito: clic en una línea para fijar el LÍMITE. Clic en otra para cortar (Trim) o alargar (Extend). Clic en vacío para deseleccionar.',
             'cad.hint.draw': 'Clic para fijar inicio; clic para fijar fin. Snaps automáticos a extremos y rejilla.',
             'cad.hint.delete': 'Clic sobre cualquier línea para eliminarla.',
+            'timer.seg': 'SEG',
             'footer.rights': 'Todos los derechos reservados.',
             'footer.design': 'Diseño WEB',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
@@ -195,6 +196,7 @@
             'cad.hint.trim': 'Infinite boundary: click a line to set BOUNDARY. Click another line to Trim or Extend. Click empty space to deselect.',
             'cad.hint.draw': 'Click to set start; click to set end. Automatic snaps to endpoints and grid.',
             'cad.hint.delete': 'Click on any line to delete it.',
+            'timer.seg': 'SEC',
             'footer.rights': 'All rights reserved.',
             'footer.design': 'Web Design',
             'footer.revit': 'REVIT: MANAGE → ADDITIONAL SETTINGS → FILL PATTERNS → IMPORT',
@@ -215,6 +217,11 @@
         document.documentElement.lang = lang;
         document.querySelectorAll('[data-i18n]').forEach((el) => {
             el.textContent = t(el.dataset.i18n);
+        });
+        document.querySelectorAll('[data-i18n-tooltip]').forEach((el) => {
+            const tip = t(el.dataset.i18nTooltip);
+            el.setAttribute('data-tooltip', tip);
+            el.setAttribute('title', tip);
         });
     }
 
@@ -536,16 +543,18 @@
         $('.file-name').textContent = file.name;
         $('.file-size').textContent = formatBytes(file.size);
         const thumb = $('.file-thumb');
-        if (mode === 'image' && file.type.startsWith('image/')) {
-            thumb.classList.remove('hidden');
-            thumb.src = URL.createObjectURL(file);
-        } else {
-            thumb.classList.add('hidden');
-            thumb.removeAttribute('src');
+        if (thumb) {
+            if (mode === 'image' && file.type.startsWith('image/')) {
+                thumb.classList.remove('hidden');
+                thumb.src = URL.createObjectURL(file);
+            } else {
+                thumb.classList.add('hidden');
+                thumb.removeAttribute('src');
+            }
         }
         dz.classList.add('has-file');
         // Auto-generación inmediata al cargar archivo
-        convert({ initial: true, shouldScroll: true });
+        convert({ initial: true, shouldScroll: false });
     }
 
     function clearFile() {
@@ -557,12 +566,14 @@
             activeAbortController.abort();
             activeAbortController = null;
         }
+        resetExecTimer();
         currentFile = null;
         fileInput.value = '';
         mode = 'image';
         syncControlsMode();
         dz.classList.remove('has-file');
-        $('.dropzone-file').classList.add('hidden');
+        const dzFile = $('.dropzone-file');
+        if (dzFile) dzFile.classList.add('hidden');
         hideResults();
         hideAlert();
     }
@@ -573,11 +584,15 @@
         return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
     }
 
-    /* ============ Collapsible groups ============ */
-    $$('.group-header').forEach((header) => {
+    /* ============ Collapsible groups (exclusive accordion) ============ */
+    const groupHeaders = $$('.group-header');
+    groupHeaders.forEach((header) => {
         header.addEventListener('click', () => {
-            const open = header.getAttribute('aria-expanded') === 'true';
-            header.setAttribute('aria-expanded', String(!open));
+            const isOpen = header.getAttribute('aria-expanded') === 'true';
+            if (isOpen) return;
+            groupHeaders.forEach((h) => {
+                h.setAttribute('aria-expanded', h === header ? 'true' : 'false');
+            });
         });
     });
 
@@ -601,24 +616,30 @@
     const methodSel = $('#ctl-method');
     const p1Label = $('[data-for-method="all"] .field-label');
     function syncMethod() {
-        const m = methodSel.value;
+        const m = methodSel ? methodSel.value : 'precision';
         $$('[data-for-method]').forEach((el) => {
             el.classList.toggle('hidden', el.dataset.forMethod !== 'all' && el.dataset.forMethod !== m);
         });
         const defaults = { hough: 20, lsd: 15, contour: 20, precision: 20 };
         const p1 = $('#ctl-p1');
-        p1.value = defaults[m];
-        const outP1 = $('output[for="ctl-p1"]');
-        if (outP1) outP1.value = formatSliderOutput('ctl-p1', p1.value);
-        setFill(p1);
-        p1Label.textContent = m === 'contour'
-            ? (lang === 'es' ? 'LONGITUD MÍN. CONTORNO' : 'MIN. CONTOUR LENGTH')
-            : t('ctl.minlen');
+        if (p1) {
+            p1.value = defaults[m] || 20;
+            const outP1 = $('output[for="ctl-p1"]');
+            if (outP1) outP1.value = formatSliderOutput('ctl-p1', p1.value);
+            setFill(p1);
+        }
+        if (p1Label) {
+            p1Label.textContent = m === 'contour'
+                ? (lang === 'es' ? 'LONGITUD MÍN. CONTORNO' : 'MIN. CONTOUR LENGTH')
+                : t('ctl.minlen');
+        }
         if (currentFile && mode === 'image') {
             scheduleConvert(0);
         }
     }
-    methodSel.addEventListener('change', syncMethod);
+    if (methodSel) {
+        methodSel.addEventListener('change', syncMethod);
+    }
     syncMethod();
 
     // Botón AUTO (precisión): pide auto-tuning en la próxima conversión
@@ -838,9 +859,54 @@
     const alertBox = $('#alert-box');
     const alertMsg = $('.alert-msg');
     const results = $('#results');
+    const timerValueEl = $('#timer-value');
     let debounceTimer = null;
     let activeAbortController = null;
     let latestRequestId = 0;
+    let execTimerInterval = null;
+    let execTimerStart = 0;
+
+    function formatExecSeconds(sec) {
+        const totalSec = Math.max(0, Math.floor(sec));
+        const mm = String(Math.floor(totalSec / 60)).padStart(2, '0');
+        const ss = String(totalSec % 60).padStart(2, '0');
+        return `${mm}:${ss}`;
+    }
+
+    function startExecTimer() {
+        if (execTimerInterval) {
+            clearInterval(execTimerInterval);
+            execTimerInterval = null;
+        }
+        execTimerStart = performance.now();
+        if (timerValueEl) timerValueEl.textContent = '00:00';
+        execTimerInterval = setInterval(() => {
+            const elapsedSec = (performance.now() - execTimerStart) / 1000;
+            if (timerValueEl) {
+                timerValueEl.textContent = formatExecSeconds(elapsedSec);
+            }
+        }, 100);
+    }
+
+    function stopExecTimer() {
+        if (execTimerInterval) {
+            clearInterval(execTimerInterval);
+            execTimerInterval = null;
+        }
+        if (execTimerStart > 0 && timerValueEl) {
+            const elapsedSec = Math.max(1, Math.round((performance.now() - execTimerStart) / 1000));
+            timerValueEl.textContent = formatExecSeconds(elapsedSec);
+        }
+    }
+
+    function resetExecTimer() {
+        if (execTimerInterval) {
+            clearInterval(execTimerInterval);
+            execTimerInterval = null;
+        }
+        execTimerStart = 0;
+        if (timerValueEl) timerValueEl.textContent = '00:00';
+    }
 
     function scheduleConvert(delay = 140) {
         if (debounceTimer) {
@@ -848,6 +914,7 @@
             debounceTimer = null;
         }
         if (!currentFile || mode !== 'image') return;
+        resetExecTimer();
         if (delay === 0) {
             convert({ isLive: true, shouldScroll: false });
         } else {
@@ -919,7 +986,24 @@
     }
 
     function hideResults() {
-        results.classList.add('hidden');
+        results.classList.remove('is-updating');
+        const dbg = $('#debug-img');
+        const prv = $('#preview-img');
+        if (dbg) dbg.removeAttribute('src');
+        if (prv) prv.removeAttribute('src');
+        debugViews.base = '';
+        debugViews.detect = '';
+        debugViews.types = '';
+        debugViews.heat = '';
+        cadSegments = [];
+        cadInitialSegments = [];
+        cadUndoStack = [];
+        renderCadCanvas();
+        const st = $('#stats');
+        if (st) st.textContent = '';
+        const wn = $('#warnings');
+        if (wn) wn.innerHTML = '';
+        lastPat = null;
     }
 
     async function convert(opts = {}) {
@@ -944,12 +1028,8 @@
         }
 
         hideAlert();
-
-        if (initial) {
-            hideResults();
-        } else {
-            results.classList.add('is-updating');
-        }
+        results.classList.add('is-updating');
+        startExecTimer();
 
         const fd = new FormData();
         fd.append('file', currentFile);
@@ -961,13 +1041,14 @@
         } else {
             const num = (id) => parseFloat($('#' + id).value);
             const bool = (id) => $('#' + id).checked;
-            fd.append('method', methodSel.value);
+            const mVal = methodSel ? methodSel.value : 'precision';
+            fd.append('method', mVal);
             fd.append('canny_low', $('#ctl-cannylow').value);
             fd.append('canny_high', $('#ctl-cannyhigh').value);
             fd.append('blur_size', $('#ctl-blur').value);
             fd.append('param1', $('#ctl-p1').value);
-            fd.append('param2', methodSel.value === 'hough' ? $('#ctl-p2hough').value
-                : methodSel.value === 'contour' ? (num('ctl-p2cont') / 1000).toString()
+            fd.append('param2', mVal === 'hough' && $('#ctl-p2hough') ? $('#ctl-p2hough').value
+                : mVal === 'contour' && $('#ctl-p2cont') ? (num('ctl-p2cont') / 1000).toString()
                 : '0');
             fd.append('use_clahe', bool('ctl-clahe'));
             fd.append('clahe_clip', $('#ctl-claheclip').value);
@@ -1035,12 +1116,14 @@
                 const msg = (json.detail && (json.detail.error || (typeof json.detail === 'string' ? json.detail : null))) || json.error || t('err.network');
                 throw new Error(msg);
             }
+            stopExecTimer();
             renderResults(json, { initial, shouldScroll: shouldScroll || isManual });
         } catch (err) {
             if (err.name === 'AbortError') {
                 return;
             }
             if (reqId !== latestRequestId) return;
+            resetExecTimer();
             showError(err.message || t('err.network'), { keepResults: !initial && !!lastPat });
         } finally {
             if (reqId === latestRequestId) {
@@ -1710,7 +1793,7 @@
                 + ', ' + parseFloat(ap.sagitta_mm).toFixed(2) + 'mm]');
         }
         strip.textContent = parts.join(' · ');
-        strip.classList.toggle('hidden', parts.length === 0);
+        strip.classList.add('hidden');
     }
 
     function applyAutoParamsToSliders(autoParams) {
