@@ -1460,10 +1460,13 @@
             cadCtx.setLineDash([]);
         }
 
-        // Trazado de segmentos
+        // Trazado de segmentos (en vista 'detect' dibuja toda la red; en otras vistas solo selección/hover interactivo)
+        const showFullCadOverlay = (activeDebugView === 'detect');
         cadSegments.forEach((s, idx) => {
             const isBoundary = idx === cadBoundaryIdx;
             const isHover = idx === cadHoverIdx;
+            if (!showFullCadOverlay && !isBoundary && !isHover) return;
+
             const p1 = cadMmToPx(s[0], s[1], tf);
             const p2 = cadMmToPx(s[2], s[3], tf);
 
@@ -1534,6 +1537,8 @@
             const payload = {
                 segments: cadSegments,
                 tile_mm: Math.max(cadTileW, cadTileH),
+                tile_w: cadTileW,
+                tile_h: cadTileH,
                 unit: mode === 'dxf' ? 'in' : 'mm',
                 pattern_name: 'CAD_Pattern',
                 pattern_type: $('#ctl-patterntype').value,
@@ -1669,7 +1674,7 @@
     /* ============ Results ============ */
     let lastPat = null;
     const debugViews = { base: '', detect: '', types: '', heat: '' };
-    let activeDebugView = 'base';
+    let activeDebugView = 'detect';
 
     function setDebugView(v) {
         activeDebugView = v;
@@ -1677,8 +1682,11 @@
             b.classList.toggle('is-active', b.dataset.view === v);
         });
         const img = $('#debug-img');
-        const src = debugViews[v] || debugViews.base || debugViews.detect || '';
+        const src = (v === 'detect' && cadSegments.length && debugViews.base)
+            ? debugViews.base
+            : (debugViews[v] || debugViews.base || debugViews.detect || '');
         if (src) img.src = src;
+        renderCadCanvas();
     }
 
     function updateAnalysisStrip(analysis) {
@@ -1732,14 +1740,6 @@
         lastPat = json.pat_content;
 
         $('#stats').textContent = json.stats || '';
-        // Fase 1: badge de fidelidad del tiling (el PAT per-line es exacto
-        // en cualquier ángulo; solo se degrada si el preview recorta).
-        const fid = document.createElement('span');
-        fid.className = 'fidelity-badge' + (json.preview_truncated ? ' warning' : '');
-        fid.textContent = json.preview_truncated
-            ? '⚠ Fidelidad de tiling: preview truncado'
-            : 'Fidelidad de tiling: 100%';
-        $('#stats').appendChild(fid);
         const warnBox = $('#warnings');
         warnBox.innerHTML = '';
         (json.warnings || []).forEach((w) => {
@@ -1760,8 +1760,9 @@
         const btnHeat = $('#view-heat');
         if (btnTypes) btnTypes.classList.toggle('hidden', !debugViews.types);
         if (btnHeat) btnHeat.classList.toggle('hidden', !debugViews.heat);
-        if (activeDebugView !== 'base' && !debugViews[activeDebugView]) activeDebugView = 'base';
-        setDebugView(activeDebugView);
+        if (activeDebugView !== 'base' && activeDebugView !== 'detect' && !debugViews[activeDebugView]) {
+            activeDebugView = 'detect';
+        }
         updateAnalysisStrip(json.analysis);
         applyAutoParamsToSliders(json.analysis && json.analysis.auto_params);
         setCadRotation(0);
@@ -1780,10 +1781,14 @@
             cadTileH = json.tile_h || 100;
             cadInitialTileW = cadTileW;
             cadInitialTileH = cadTileH;
+            setDebugView(activeDebugView);
             setTimeout(() => {
                 sizeCadCanvas();
                 renderCadCanvas();
             }, 60);
+        } else {
+            cadSegments = [];
+            setDebugView(activeDebugView);
         }
 
         const wasHidden = results.classList.contains('hidden');
@@ -1858,10 +1863,14 @@
     if (downloadBtn) {
         downloadBtn.addEventListener('click', async () => {
             if (!lastPat) return;
-            const baseName = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'HATCH.it';
-            const filename = `${baseName}.pat`;
+            const rawBase = currentFile ? currentFile.name.replace(/\.[^/.]+$/, '') : 'HATCH.it';
+            const patType = ($('#ctl-patterntype') && $('#ctl-patterntype').value === 'DRAFTING')
+                ? 'DISEÑO'
+                : 'MODELO';
+            const cleanBase = rawBase.replace(/_(MODELO|DISEÑO|DISENO|MODEL|DRAFTING)$/i, '');
+            const filename = `${cleanBase}_${patType}.PAT`;
             const blob = new Blob([lastPat], { type: 'text/plain' });
-            await saveFileWithFolderPicker(blob, filename, 'Patrón de relleno Revit (.pat)', '.pat');
+            await saveFileWithFolderPicker(blob, filename, 'Patrón de relleno Revit (.PAT)', '.PAT');
         });
     }
 

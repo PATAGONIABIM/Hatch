@@ -317,9 +317,10 @@ def run(img_bgr, force_mode=None, rdp_tol=0.5, curves="fit",
         n_chains = len(chain_data)
         if period is not None:
             # F7-4: wrap mod tile para un PAT sin costuras
-            segs, is_chord = _periodic.wrap_segments(
+            segs, is_chord, seg_types = _periodic.wrap_segments(
                 segs, is_chord, w, h,
-                min_piece=max(0.05, 0.1 * max(sw, 1.0)))
+                min_piece=max(0.05, 0.1 * max(sw, 1.0)),
+                seg_types=seg_types)
     else:
         # F3b: intentar resolver la región por eje medio de juntas
         # (k-means Lab); si no hay estructura utilizable, contornos.

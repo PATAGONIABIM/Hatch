@@ -355,22 +355,26 @@
                         <div class="group-body">
                             <div class="field">
                                 <label class="field-label" data-i18n="ctl.precmode">MODO</label>
-                                <div class="precmode-row">
-                                    <label class="precmode-chip">
+                                <div class="pattern-type-options">
+                                    <label class="circular-check" data-cursor>
                                         <input type="radio" name="precmode" value="auto" checked>
-                                        <span data-i18n="prec.auto">Auto</span>
+                                        <span class="check-circle"></span>
+                                        <span class="check-label" data-i18n="prec.auto">Auto</span>
                                     </label>
-                                    <label class="precmode-chip">
+                                    <label class="circular-check" data-cursor>
                                         <input type="radio" name="precmode" value="centerline">
-                                        <span data-i18n="prec.centerline">Dibujo</span>
+                                        <span class="check-circle"></span>
+                                        <span class="check-label" data-i18n="prec.centerline">Dibujo</span>
                                     </label>
-                                    <label class="precmode-chip">
+                                    <label class="circular-check" data-cursor>
                                         <input type="radio" name="precmode" value="region">
-                                        <span data-i18n="prec.region">Foto</span>
+                                        <span class="check-circle"></span>
+                                        <span class="check-label" data-i18n="prec.region">Foto</span>
                                     </label>
-                                    <label class="precmode-chip">
+                                    <label class="circular-check" data-cursor>
                                         <input type="radio" name="precmode" value="strict">
-                                        <span data-i18n="prec.strict">Estricto</span>
+                                        <span class="check-circle"></span>
+                                        <span class="check-label" data-i18n="prec.strict">Estricto</span>
                                     </label>
                                 </div>
                             </div>
@@ -632,9 +636,9 @@
                                 <canvas id="cad-canvas" class="cad-canvas"></canvas>
                             </div>
                             <div class="view-strip">
-                                <button type="button" class="cad-btn cad-view-btn is-active" id="view-base"
+                                <button type="button" class="cad-btn cad-view-btn" id="view-base"
                                     data-view="base" data-cursor><span data-i18n="view.base">BASE</span></button>
-                                <button type="button" class="cad-btn cad-view-btn" id="view-detect"
+                                <button type="button" class="cad-btn cad-view-btn is-active" id="view-detect"
                                     data-view="detect" data-cursor><span data-i18n="view.detect">RED</span></button>
                                 <button type="button" class="cad-btn cad-view-btn hidden" id="view-types"
                                     data-view="types" data-cursor><span data-i18n="view.types">TIPOS</span></button>

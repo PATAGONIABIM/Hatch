@@ -183,6 +183,35 @@ def test_convert_segments_drafting():
     assert ";%TYPE=DRAFTING" in r.json()["pat_content"]
 
 
+def test_convert_segments_diagonal_preserves_3x3_tiling():
+    import pat_sim
+
+    segs = [
+        [10.0, 10.0, 85.0, 23.0],
+        [15.0, 40.0, 77.0, 89.0],
+        [0.0, 50.0, 100.0, 50.0],
+    ]
+    r = client.post(
+        "/api/convert/segments",
+        json={
+            "segments": segs,
+            "tile_mm": 100.0,
+            "tile_w": 100.0,
+            "tile_h": 100.0,
+            "pattern_name": "DiagTileTest",
+            "pattern_type": "MODEL",
+        },
+    )
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["tile_w"] == 100.0
+    assert j["tile_h"] == 100.0
+    assert j["warnings"] == []
+    _, entries = pat_sim.parse_pat(j["pat_content"])
+    inferred = pat_sim.infer_tile_size(entries)
+    assert inferred <= 105.0, f"infer_tile_size inflated to {inferred}"
+
+
 def test_export_dxf_from_segments():
     r = client.post(
         "/api/export/dxf/segments",

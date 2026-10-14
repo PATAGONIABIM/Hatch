@@ -381,8 +381,10 @@ def export_dxf_from_segments(req: SegmentsDxfRequest):
 
 
 class SegmentsRequest(BaseModel):
-    segments: list
+    segments: list = Field(..., description="Lista de [x1, y1, x2, y2] en mm")
     tile_mm: float = Field(100.0, gt=0)
+    tile_w: float | None = Field(None, gt=0)
+    tile_h: float | None = Field(None, gt=0)
     pattern_name: str = "Draw_Pattern"
     pattern_type: str = "MODEL"
     unit: str = "mm"
@@ -411,14 +413,18 @@ def convert_segments(req: SegmentsRequest):
         segs = [(x1 - min_x, y1 - min_y, x2 - min_x, y2 - min_y) for x1, y1, x2, y2 in segs]
 
     tile = float(req.tile_mm)
+    tw = float(req.tile_w) if req.tile_w else tile
+    th = float(req.tile_h) if req.tile_h else tile
+    tile_max = max(tw, th)
     unit = req.unit if req.unit in ("mm", "cm", "in") else "mm"
     t0 = time.perf_counter()
-    segs, removed = dedup_duplicate_segments(segs, tile)
+    segs, removed = dedup_duplicate_segments(segs, tile_max)
     try:
         compiled = pat_compiler.compile_pat_perline(
             segs, name=req.pattern_name or "Draw_Pattern",
-            desc="HATCH.it draw pattern", tile_size=tile,
+            desc="HATCH.it draw pattern", tile_size=tile_max,
             coord_nd=6, dash_nd=6, pattern_type=pattern_type,
+            tile_w=tw, tile_h=th,
         )
     except ValueError as e:
         raise HTTPException(400, detail={"error": clean_text(str(e))})
@@ -427,9 +433,9 @@ def convert_segments(req: SegmentsRequest):
     pat_content = compiled["pat_content"]
     img, pv_stats = render_pat_preview(
         pat_content, tile_count=3, preview_size=600, manual_scale=1.0,
-        return_stats=True,
+        return_stats=True, tile_w=tw, tile_h=th,
     )
-    stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile:.2f} {unit}"
+    stats = f"segmentos: {len(segs)} | entradas: {compiled['num_entries']} | tile: {tile_max:.2f} {unit}"
     if removed:
         stats += f" | duplicados eliminados: {removed}"
     warnings = []
@@ -444,8 +450,8 @@ def convert_segments(req: SegmentsRequest):
         "stats": stats,
         "warnings": warnings,
         "num_entries": compiled["num_entries"],
-        "tile_w": tile,
-        "tile_h": tile,
+        "tile_w": tw,
+        "tile_h": th,
         "segments": len(segs),
         "elapsed_ms": elapsed_ms,
     }
@@ -456,6 +462,8 @@ class PreviewRequest(BaseModel):
     tile_count: int = Field(3, ge=1, le=9)
     preview_size: int = Field(600, ge=100, le=1200)
     manual_scale: float = Field(1.0, ge=0.05, le=20.0)
+    tile_w: float | None = Field(default=None, ge=0.001, le=100000)
+    tile_h: float | None = Field(default=None, ge=0.001, le=100000)
 
 
 @app.post("/api/preview")
@@ -470,6 +478,8 @@ def preview(req: PreviewRequest):
             preview_size=req.preview_size,
             manual_scale=req.manual_scale,
             return_stats=True,
+            tile_w=req.tile_w,
+            tile_h=req.tile_h,
         )
     except Exception as e:
         raise HTTPException(400, detail={"error": clean_text(str(e))})

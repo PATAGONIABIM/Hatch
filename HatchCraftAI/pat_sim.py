@@ -162,7 +162,13 @@ def segments_in_rect(pat_content, rect):
 def infer_tile_size(entries):
     t = 0.0
     for e in entries:
-        t = max(t, abs(e["ox"]), abs(e["oy"]), abs(e["dx"]), abs(e["dy"]))
+        t = max(t, abs(e["ox"]), abs(e["oy"]), abs(e["dy"]))
+        ang = e["angle"] % 180.0
+        if (ang < 1e-3 or abs(ang - 90.0) < 1e-3 or abs(ang - 180.0) < 1e-3) and e["dashes"]:
+            t = max(t, sum(abs(d) for d in e["dashes"]))
+    if t <= EPS:
+        for e in entries:
+            t = max(t, abs(e["dx"]))
     return t if t > EPS else 1.0
 
 

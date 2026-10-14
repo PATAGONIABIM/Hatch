@@ -222,25 +222,35 @@ def average_cell(ink, x0, y0, cell_w, cell_h, nx, ny):
     return (acc / float(n)).astype(np.float32)
 
 
-def wrap_segments(segments, flags, tile_w, tile_h, min_piece=0.05):
+def wrap_segments(segments, flags, tile_w, tile_h, min_piece=0.05, seg_types=None):
     """Envuelve segmentos mod (tile_w, tile_h) para un PAT sin costuras.
 
     Los segmentos que cruzan el borde se cortan en los cruces y cada
     trozo se traslada a su posición dentro del tile. Las piezas mínimas
     (slivers) se descartan. Devuelve (segmentos, flags) con los flags
-    paralelos conservados (None si la entrada era None).
+    paralelos conservados (None si la entrada era None), o
+    (segmentos, flags, seg_types) si seg_types no es None.
     """
     if not segments:
-        return list(segments), (list(flags) if flags is not None else None)
+        res_flags = list(flags) if flags is not None else None
+        if seg_types is not None:
+            return list(segments), res_flags, list(seg_types)
+        return list(segments), res_flags
     W = float(tile_w)
     H = float(tile_h)
     if W <= 0 or H <= 0:
-        return list(segments), (list(flags) if flags is not None else None)
+        res_flags = list(flags) if flags is not None else None
+        if seg_types is not None:
+            return list(segments), res_flags, list(seg_types)
+        return list(segments), res_flags
     has_flags = flags is not None and len(flags) == len(segments)
+    has_types = seg_types is not None and len(seg_types) == len(segments)
     out = []
     out_flags = []
+    out_types = []
     for idx, (x1, y1, x2, y2) in enumerate(segments):
         fl = bool(flags[idx]) if has_flags else None
+        st = seg_types[idx] if has_types else None
         dx = float(x2) - float(x1)
         dy = float(y2) - float(y1)
         ts = set()
@@ -275,6 +285,9 @@ def wrap_segments(segments, flags, tile_w, tile_h, min_piece=0.05):
             out.append((pax - kx * W, pay - ky * H,
                         pbx - kx * W, pby - ky * H))
             out_flags.append(fl)
+            out_types.append(st)
     if not has_flags:
         out_flags = None
+    if seg_types is not None:
+        return out, out_flags, (out_types if has_types else None)
     return out, out_flags

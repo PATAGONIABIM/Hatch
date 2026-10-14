@@ -13,16 +13,22 @@ from segment_cleaner import dedup_duplicate_segments
 
 
 def render_pat_preview(pat_content, tile_count=3, preview_size=600,
-                       manual_scale=1.0, return_stats=False):
+                       manual_scale=1.0, return_stats=False,
+                       tile_w=None, tile_h=None):
     """Renderiza el PAT con el simulador fiel (semántica real de Revit).
 
     Con return_stats=True devuelve (imagen, stats) donde stats incluye
     `truncated` si el render se recortó por límite de segmentos.
     """
-    _, entries = pat_sim.parse_pat(pat_content)
-    size = pat_sim.infer_tile_size(entries)
+    if tile_w is None or tile_h is None:
+        _, entries = pat_sim.parse_pat(pat_content)
+        size = pat_sim.infer_tile_size(entries)
+        if tile_w is None:
+            tile_w = size
+        if tile_h is None:
+            tile_h = size
     return pat_sim.render_faithful(
-        pat_content, size, size,
+        pat_content, tile_w, tile_h,
         tiles=tile_count, size=preview_size,
         manual_scale=manual_scale, return_stats=return_stats
     )
@@ -726,9 +732,10 @@ class ImageToPatConverter:
                 else:
                     line_color = (80, 80, 80)
 
+                lw_dbg = max(2, int(round(max(debug_base.shape[:2]) / 500.0 * 2.0)))
                 cv2.line(debug_img, (int(round(x1)), int(round(y1))),
                          (int(round(x2)), int(round(y2))),
-                         line_color, 1, cv2.LINE_AA)
+                         line_color, lw_dbg, cv2.LINE_AA)
 
                 kept_lines.append((x1, y1, x2, y2))
                 if raw_types is not None:
@@ -738,54 +745,56 @@ class ImageToPatConverter:
                 return {"error": "No se detectaron líneas válidas. Ajusta los parámetros."}
 
             # --- S6: renders para la vista de tipos y el heatmap de error ---
+            lw_dbg = max(2, int(round(max(debug_base.shape[:2]) / 500.0 * 2.0)))
             debug_types = None
             debug_heat = None
             if raw_types is not None and len(kept_types) == len(kept_lines):
                 type_colors = {
-                    "line": (255, 70, 20),    # azul
-                    "arc": (40, 180, 60),     # verde
-                    "bezier": (40, 150, 255),  # naranja
+                    "line": (255, 70, 20),    # azul (BGR)
+                    "arc": (40, 180, 60),     # verde (BGR)
+                    "bezier": (40, 150, 255),  # naranja (BGR)
                 }
                 debug_types = debug_base.copy()
                 for (x1, y1, x2, y2), ty in zip(kept_lines, kept_types):
                     cv2.line(debug_types, (int(round(x1)), int(round(y1))),
                              (int(round(x2)), int(round(y2))),
                              type_colors.get(ty, (80, 80, 80)),
-                             1, cv2.LINE_AA)
-                # heatmap: desviación máxima de cada segmento respecto a la
-                # tinta (distanceTransform sobre no-tinta)
-                ink_mask = (edges > 0).astype(np.uint8) if edges is not None \
-                    else None
-                if ink_mask is not None and ink_mask.any():
-                    dist = cv2.distanceTransform(
-                        1 - ink_mask, cv2.DIST_L2, cv2.DIST_MASK_5)
-                    h_img, w_img = dist.shape
-                    sw_ref = max(stroke_width, 1.0)
-                    heat = debug_base.copy()
-                    for (x1, y1, x2, y2) in kept_lines:
-                        n_samples = 16
-                        ts = np.linspace(0.0, 1.0, n_samples)
-                        xs = np.clip(x1 + (x2 - x1) * ts, 0, w_img - 1)
-                        ys = np.clip(y1 + (y2 - y1) * ts, 0, h_img - 1)
-                        ix = np.round(xs).astype(int)
-                        iy = np.round(ys).astype(int)
-                        err = float(dist[iy, ix].max())
-                        t = min(1.0, err / (2.0 * sw_ref))
-                        # verde (60,180,60) -> amarillo -> rojo (50,50,230)
-                        if t < 0.5:
-                            f = t / 0.5
-                            color = (int(60 + (0 - 60) * f),
-                                     int(180 + (20 * f)),
-                                     int(60 + (170 * f)))
-                        else:
-                            f = (t - 0.5) / 0.5
-                            color = (int(0 + 50 * f),
-                                     int(200 - 150 * f),
-                                     int(230 + 0 * f))
-                        cv2.line(heat, (int(round(x1)), int(round(y1))),
-                                 (int(round(x2)), int(round(y2))),
-                                 color, 1, cv2.LINE_AA)
-                    debug_heat = heat
+                             lw_dbg, cv2.LINE_AA)
+
+            # heatmap: desviación máxima de cada segmento respecto a la
+            # tinta (distanceTransform sobre no-tinta)
+            ink_mask = (edges > 0).astype(np.uint8) if edges is not None \
+                else None
+            if ink_mask is not None and ink_mask.any():
+                dist = cv2.distanceTransform(
+                    1 - ink_mask, cv2.DIST_L2, cv2.DIST_MASK_5)
+                h_img, w_img = dist.shape
+                sw_ref = max(stroke_width, 1.0)
+                heat = debug_base.copy()
+                for (x1, y1, x2, y2) in kept_lines:
+                    n_samples = 16
+                    ts = np.linspace(0.0, 1.0, n_samples)
+                    xs = np.clip(x1 + (x2 - x1) * ts, 0, w_img - 1)
+                    ys = np.clip(y1 + (y2 - y1) * ts, 0, h_img - 1)
+                    ix = np.round(xs).astype(int)
+                    iy = np.round(ys).astype(int)
+                    err = float(dist[iy, ix].max())
+                    t = min(1.0, err / (2.0 * sw_ref))
+                    # verde (60,180,60) -> amarillo -> rojo (50,50,230)
+                    if t < 0.5:
+                        f = t / 0.5
+                        color = (int(60 + (0 - 60) * f),
+                                 int(180 + (20 * f)),
+                                 int(60 + (170 * f)))
+                    else:
+                        f = (t - 0.5) / 0.5
+                        color = (int(0 + 50 * f),
+                                 int(200 - 150 * f),
+                                 int(230 + 0 * f))
+                    cv2.line(heat, (int(round(x1)), int(round(y1))),
+                             (int(round(x2)), int(round(y2))),
+                             color, lw_dbg, cv2.LINE_AA)
+                debug_heat = heat
 
             period_info = prec.get("period") if precision_mode else None
 
