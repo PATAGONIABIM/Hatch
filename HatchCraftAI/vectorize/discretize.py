@@ -49,7 +49,7 @@ def _bezier_flat(ctrl, sagitta):
     worst = 0.0
     for c in (ctrl[1], ctrl[2]):
         v = c - p0
-        worst = max(worst, abs(float(np.cross(n, v))))
+        worst = max(worst, abs(float(n[0] * v[1] - n[1] * v[0])))
     return worst <= sagitta
 
 
